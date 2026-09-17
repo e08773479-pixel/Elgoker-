@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07130f">
+  <title>Malak | ملك</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="toast"></div>
+
+<section id="authScreen" class="screen auth-screen">
+  <div class="auth-card">
+    <div class="brand"><div class="brand-mark">M</div><div><b>Malak</b><small>ملك</small></div></div>
+    <h1>تواصل. شارك. اكتشف.</h1>
+    <p class="muted">شبكتك الاجتماعية في مكان واحد.</p>
+
+    <form id="authForm">
+      <label>البريد الإلكتروني</label>
+      <input id="email" type="email" autocomplete="email" required placeholder="name@example.com">
+      <label>كلمة المرور</label>
+      <input id="password" type="password" minlength="6" autocomplete="current-password" required placeholder="••••••••">
+      <input id="displayName" class="register-only" type="text" placeholder="اسمك" autocomplete="name">
+      <button class="primary" type="submit" id="authSubmit">تسجيل الدخول</button>
+    </form>
+
+    <div class="auth-row">
+      <button id="toggleRegister" class="ghost">إنشاء حساب جديد</button>
+      <button id="googleBtn" class="google">G تسجيل الدخول بجوجل</button>
+    </div>
+    <button id="phoneBtn" class="text-btn">تسجيل الدخول برقم الهاتف</button>
+    <p id="authStatus" class="status"></p>
+  </div>
+</section>
+
+<section id="appScreen" class="screen hidden">
+  <header class="topbar">
+    <button class="icon-btn mobile-only" id="mobileMenu">☰</button>
+    <div class="brand compact"><div class="brand-mark">M</div><b>Malak</b></div>
+    <div class="search"><span>⌕</span><input id="searchInput" placeholder="ابحث عن أشخاص أو منشورات أو مجموعات"></div>
+    <div class="top-actions">
+      <button class="icon-btn" id="notifBtn" title="الإشعارات">🔔<i id="notifCount">0</i></button>
+      <button class="avatar-btn" id="meBtn"><img id="topAvatar" alt=""></button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside id="sidebar" class="sidebar">
+      <nav>
+        <button class="nav active" data-page="home">⌂ <span>الرئيسية</span></button>
+        <button class="nav" data-page="friends">👥 <span>الأصدقاء</span></button>
+        <button class="nav" data-page="messages">💬 <span>الرسائل</span><i id="msgCount">0</i></button>
+        <button class="nav" data-page="explore">◉ <span>استكشف</span></button>
+        <button class="nav" data-page="groups">▣ <span>المجموعات</span></button>
+        <button class="nav" data-page="profile">◉ <span>الملف الشخصي</span></button>
+        <button class="nav" data-page="settings">⚙ <span>الإعدادات</span></button>
+      </nav>
+      <div class="side-profile" id="sideProfile"></div>
+      <button class="logout" id="logoutBtn">تسجيل الخروج</button>
+    </aside>
+
+    <main id="main" class="main">
+      <div id="pageHome" class="page">
+        <section class="stories" id="stories"></section>
+
+        <section class="composer card">
+          <div class="composer-head"><img id="composerAvatar" class="avatar" alt=""><textarea id="postText" rows="2" placeholder="ماذا يدور في بالك؟"></textarea></div>
+          <div class="composer-actions">
+            <label class="action"><input id="postImage" type="file" accept="image/*">📷 صورة</label>
+            <label class="action"><input id="postVideo" type="file" accept="video/*">🎬 فيديو</label>
+            <select id="postVisibility"><option value="public">عام</option><option value="friends">الأصدقاء</option></select>
+            <button id="publishBtn" class="primary small">نشر</button>
+          </div>
+        </section>
+
+        <div id="feed"></div>
+      </div>
+
+      <div id="pageFriends" class="page hidden"><div class="page-title"><h2>الأصدقاء</h2><p>ابحث وتابع الأشخاص وتواصل معهم.</p></div><div id="friendsGrid" class="grid"></div></div>
+      <div id="pageMessages" class="page hidden"><div class="messages-layout card"><aside id="conversationList" class="conversation-list"></aside><section id="chatPanel" class="chat-panel"><div class="empty">اختر محادثة للبدء</div></section></div></div>
+      <div id="pageExplore" class="page hidden"><div class="page-title"><h2>استكشف</h2><p>أحدث المحتوى العام.</p></div><div id="exploreFeed"></div></div>
+      <div id="pageGroups" class="page hidden"><div class="page-title"><h2>المجموعات</h2><p>مساحات تجمعك بالناس الذين يشاركونك الاهتمامات.</p></div><div id="groupsGrid" class="grid"></div></div>
+      <div id="pageProfile" class="page hidden"><div id="profileView"></div></div>
+      <div id="pageSettings" class="page hidden"><div class="card settings"><h2>الإعدادات</h2><label>الاسم</label><input id="setName"><label>نبذة</label><textarea id="setBio" rows="3"></textarea><button id="saveProfile" class="primary">حفظ التغييرات</button></div></div>
+    </main>
+
+    <aside class="rightbar">
+      <div class="card mini"><h3>أصدقاء مقترحون</h3><div id="suggestions"></div></div>
+      <div class="card mini"><h3>متصل الآن</h3><div id="onlineUsers"></div></div>
+    </aside>
+  </div>
+</section>
+
+<div id="modal" class="modal hidden"><div class="modal-box"><button id="closeModal" class="close">×</button><div id="modalBody"></div></div></div>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
