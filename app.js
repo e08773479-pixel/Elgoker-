@@ -98,3 +98,81 @@ async function loadGroups(){const {data}=await sb.from("groups").select("*").ord
 $("saveProfile").onclick=async()=>{const name=$("setName").value.trim(),bio=$("setBio").value.trim();const {error}=await sb.from("profiles").update({display_name:name,bio}).eq("id",user.id);if(error)return toast(error.message);profile={...profile,display_name:name,bio};toast("تم حفظ الملف");enter(user)}
 $("searchInput").oninput=async e=>{const q=e.target.value.trim();if(q.length<2)return;const {data}=await sb.from("profiles").select("*").ilike("display_name",`%${q}%`).limit(8);$("suggestions").innerHTML=(data||[]).map(p=>`<div class="mini-row"><img class="avatar" src="${avatar(p)}"><b>${esc(p.display_name)}</b></div>`).join("")}
 boot();
+/* =================================
+   HENO CHAT - APP INSTALL SYSTEM
+================================= */
+
+(() => {
+  const banner = document.getElementById("installBanner");
+  const installButton = document.getElementById("installAppButton");
+  const closeButton = document.getElementById("closeInstallBanner");
+
+  if (!banner || !installButton || !closeButton) return;
+
+  let deferredPrompt = null;
+
+  const isInstalled = () => {
+    return window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true;
+  };
+
+  if (isInstalled()) {
+    banner.style.display = "none";
+    return;
+  }
+
+  // استقبال نافذة التثبيت من المتصفح
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredPrompt = event;
+    banner.style.display = "flex";
+  });
+
+  // زر تثبيت التطبيق
+  installButton.addEventListener("click", async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+
+      const result = await deferredPrompt.userChoice;
+
+      if (result.outcome === "accepted") {
+        banner.style.display = "none";
+      }
+
+      deferredPrompt = null;
+      return;
+    }
+
+    // تعليمات التثبيت إذا لم يوفر المتصفح النافذة
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+    if (isIOS) {
+      alert(
+        "لتثبيت HENO CHAT على هاتفك:\n\n" +
+        "1- اضغط على زر المشاركة في Safari.\n" +
+        "2- اختر إضافة إلى الشاشة الرئيسية.\n" +
+        "3- اضغط إضافة."
+      );
+    } else {
+      alert(
+        "لتثبيت HENO CHAT:\n\n" +
+        "1- افتح قائمة المتصفح ⋮.\n" +
+        "2- اختر تثبيت التطبيق أو إضافة إلى الشاشة الرئيسية.\n" +
+        "3- أكّد التثبيت."
+      );
+    }
+  });
+
+  // إخفاء دعوة التثبيت بعد نجاح التثبيت
+  window.addEventListener("appinstalled", () => {
+    banner.style.display = "none";
+    deferredPrompt = null;
+  });
+
+  // إغلاق الدعوة
+  closeButton.addEventListener("click", () => {
+    banner.style.display = "none";
+  });
+
+  banner.style.display = "flex";
+})();
