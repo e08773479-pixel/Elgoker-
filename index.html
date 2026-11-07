@@ -1,103 +1,401 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#07130f">
-  <title>Malak | ملك</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0b18">
+  <meta name="description" content="HENO CHAT — تواصل بلا حدود">
+  <title>HENO CHAT — تواصل بلا حدود</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
-<div id="toast"></div>
 
-<section id="authScreen" class="screen auth-screen">
-  <div class="auth-card">
-    <div class="brand"><div class="brand-mark">M</div><div><b>Malak</b><small>ملك</small></div></div>
-    <h1>تواصل. شارك. اكتشف.</h1>
-    <p class="muted">شبكتك الاجتماعية في مكان واحد.</p>
-
-    <form id="authForm">
-      <label>البريد الإلكتروني</label>
-      <input id="email" type="email" autocomplete="email" required placeholder="name@example.com">
-      <label>كلمة المرور</label>
-      <input id="password" type="password" minlength="6" autocomplete="current-password" required placeholder="••••••••">
-      <input id="displayName" class="register-only" type="text" placeholder="اسمك" autocomplete="name">
-      <button class="primary" type="submit" id="authSubmit">تسجيل الدخول</button>
-    </form>
-
-    <div class="auth-row">
-      <button id="toggleRegister" class="ghost">إنشاء حساب جديد</button>
-      <button id="googleBtn" class="google">G تسجيل الدخول بجوجل</button>
+  <!-- شاشة البداية -->
+  <section id="splash" class="screen splash-screen">
+    <div class="splash-glow"></div>
+    <div class="brand-logo">
+      <span class="brand-crown">♛</span>
+      <span class="brand-letter">H</span>
     </div>
-    <button id="phoneBtn" class="text-btn">تسجيل الدخول برقم الهاتف</button>
-    <p id="authStatus" class="status"></p>
-  </div>
-</section>
+    <h1>HENO <span>CHAT</span></h1>
+    <p>تواصل بلا حدود</p>
+    <div class="loading-ring"><span></span></div>
+    <small>لحظات ونكون معك</small>
+  </section>
 
-<section id="appScreen" class="screen hidden">
-  <header class="topbar">
-    <button class="icon-btn mobile-only" id="mobileMenu">☰</button>
-    <div class="brand compact"><div class="brand-mark">M</div><b>Malak</b></div>
-    <div class="search"><span>⌕</span><input id="searchInput" placeholder="ابحث عن أشخاص أو منشورات أو مجموعات"></div>
-    <div class="top-actions">
-      <button class="icon-btn" id="notifBtn" title="الإشعارات">🔔<i id="notifCount">0</i></button>
-      <button class="avatar-btn" id="meBtn"><img id="topAvatar" alt=""></button>
+  <!-- تسجيل الدخول وإنشاء الحساب -->
+  <section id="authScreen" class="screen auth-screen hidden">
+    <div class="auth-brand">
+      <div class="brand-logo small-logo">
+        <span class="brand-crown">♛</span>
+        <span class="brand-letter">H</span>
+      </div>
+      <h1>HENO <span>CHAT</span></h1>
+      <p>عالمك، أصدقاؤك، وكل محادثاتك في مكان واحد</p>
     </div>
-  </header>
 
-  <div class="layout">
-    <aside id="sidebar" class="sidebar">
-      <nav>
-        <button class="nav active" data-page="home">⌂ <span>الرئيسية</span></button>
-        <button class="nav" data-page="friends">👥 <span>الأصدقاء</span></button>
-        <button class="nav" data-page="messages">💬 <span>الرسائل</span><i id="msgCount">0</i></button>
-        <button class="nav" data-page="explore">◉ <span>استكشف</span></button>
-        <button class="nav" data-page="groups">▣ <span>المجموعات</span></button>
-        <button class="nav" data-page="profile">◉ <span>الملف الشخصي</span></button>
-        <button class="nav" data-page="settings">⚙ <span>الإعدادات</span></button>
-      </nav>
-      <div class="side-profile" id="sideProfile"></div>
-      <button class="logout" id="logoutBtn">تسجيل الخروج</button>
-    </aside>
-
-    <main id="main" class="main">
-      <div id="pageHome" class="page">
-        <section class="stories" id="stories"></section>
-
-        <section class="composer card">
-          <div class="composer-head"><img id="composerAvatar" class="avatar" alt=""><textarea id="postText" rows="2" placeholder="ماذا يدور في بالك؟"></textarea></div>
-          <div class="composer-actions">
-            <label class="action"><input id="postImage" type="file" accept="image/*">📷 صورة</label>
-            <label class="action"><input id="postVideo" type="file" accept="video/*">🎬 فيديو</label>
-            <select id="postVisibility"><option value="public">عام</option><option value="friends">الأصدقاء</option></select>
-            <button id="publishBtn" class="primary small">نشر</button>
-          </div>
-        </section>
-
-        <div id="feed"></div>
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth-tab="login">تسجيل الدخول</button>
+        <button class="auth-tab" data-auth-tab="register">إنشاء حساب</button>
       </div>
 
-      <div id="pageFriends" class="page hidden"><div class="page-title"><h2>الأصدقاء</h2><p>ابحث وتابع الأشخاص وتواصل معهم.</p></div><div id="friendsGrid" class="grid"></div></div>
-      <div id="pageMessages" class="page hidden"><div class="messages-layout card"><aside id="conversationList" class="conversation-list"></aside><section id="chatPanel" class="chat-panel"><div class="empty">اختر محادثة للبدء</div></section></div></div>
-      <div id="pageExplore" class="page hidden"><div class="page-title"><h2>استكشف</h2><p>أحدث المحتوى العام.</p></div><div id="exploreFeed"></div></div>
-      <div id="pageGroups" class="page hidden"><div class="page-title"><h2>المجموعات</h2><p>مساحات تجمعك بالناس الذين يشاركونك الاهتمامات.</p></div><div id="groupsGrid" class="grid"></div></div>
-      <div id="pageProfile" class="page hidden"><div id="profileView"></div></div>
-      <div id="pageSettings" class="page hidden"><div class="card settings"><h2>الإعدادات</h2><label>الاسم</label><input id="setName"><label>نبذة</label><textarea id="setBio" rows="3"></textarea><button id="saveProfile" class="primary">حفظ التغييرات</button></div></div>
-    </main>
+      <form id="loginForm" class="auth-form">
+        <h2>مرحباً بعودتك</h2>
+        <label for="loginEmail">البريد الإلكتروني</label>
+        <input id="loginEmail" type="email" placeholder="example@email.com" autocomplete="email" required>
 
-    <aside class="rightbar">
-      <div class="card mini"><h3>أصدقاء مقترحون</h3><div id="suggestions"></div></div>
-      <div class="card mini"><h3>متصل الآن</h3><div id="onlineUsers"></div></div>
+        <label for="loginPassword">كلمة المرور</label>
+        <input id="loginPassword" type="password" placeholder="أدخل كلمة المرور" autocomplete="current-password" required>
+
+        <button class="primary-btn" type="submit">تسجيل الدخول</button>
+        <button class="text-btn" type="button" data-action="forgot-password">نسيت كلمة المرور؟</button>
+      </form>
+
+      <form id="registerForm" class="auth-form hidden">
+        <h2>أنشئ حسابك الجديد</h2>
+        <label for="registerName">الاسم</label>
+        <input id="registerName" type="text" placeholder="اكتب اسمك" autocomplete="name" required>
+
+        <label for="registerEmail">البريد الإلكتروني</label>
+        <input id="registerEmail" type="email" placeholder="example@email.com" autocomplete="email" required>
+
+        <label for="registerPassword">كلمة المرور</label>
+        <input id="registerPassword" type="password" placeholder="أنشئ كلمة مرور قوية" autocomplete="new-password" minlength="8" required>
+
+        <button class="primary-btn" type="submit">إنشاء الحساب</button>
+      </form>
+
+      <div class="auth-divider"><span>أو</span></div>
+      <button id="googleSignIn" class="google-btn" type="button">
+        <span class="google-mark">G</span>
+        المتابعة باستخدام Google
+      </button>
+      <p class="auth-note">بإنشاء حساب، أنت توافق على شروط الاستخدام وسياسة الخصوصية.</p>
+    </div>
+  </section>
+
+  <!-- التطبيق -->
+  <section id="appScreen" class="screen app-screen hidden">
+
+    <!-- الشريط الجانبي -->
+    <aside class="side-rail">
+      <button class="rail-brand" data-page="chats" aria-label="الرئيسية">
+        <span class="rail-logo">H</span>
+      </button>
+
+      <nav class="rail-nav" aria-label="التنقل الرئيسي">
+        <button class="rail-btn active" data-page="chats" title="المحادثات">
+          <span class="nav-icon">▤</span><small>المحادثات</small>
+        </button>
+        <button class="rail-btn" data-page="contacts" title="جهات الاتصال">
+          <span class="nav-icon">♙</span><small>جهات الاتصال</small>
+        </button>
+        <button class="rail-btn" data-page="status" title="الحالات">
+          <span class="nav-icon">◉</span><small>الحالات</small>
+        </button>
+        <button class="rail-btn" data-page="groups" title="المجموعات">
+          <span class="nav-icon">♧</span><small>المجموعات</small>
+        </button>
+        <button class="rail-btn" data-page="channels" title="القنوات">
+          <span class="nav-icon">◈</span><small>القنوات</small>
+        </button>
+        <button class="rail-btn" data-page="communities" title="المجتمعات">
+          <span class="nav-icon">⌘</span><small>المجتمعات</small>
+        </button>
+        <button class="rail-btn" data-page="calls" title="المكالمات">
+          <span class="nav-icon">⌕</span><small>المكالمات</small>
+        </button>
+      </nav>
+
+      <div class="rail-bottom">
+        <button class="rail-btn" data-page="ai" title="HENO AI">
+          <span class="nav-icon">✧</span><small>HENO AI</small>
+        </button>
+        <button class="rail-btn" data-page="settings" title="الإعدادات">
+          <span class="nav-icon">⚙</span><small>الإعدادات</small>
+        </button>
+        <button class="rail-profile" data-page="profile" aria-label="الملف الشخصي">
+          <img id="railAvatar" src="assets/default-avatar.png" alt="الصورة الشخصية">
+        </button>
+      </div>
     </aside>
-  </div>
-</section>
 
-<div id="modal" class="modal hidden"><div class="modal-box"><button id="closeModal" class="close">×</button><div id="modalBody"></div></div></div>
-<script src="js/config.js"></script>
-<script src="js/app.js"></script>
+    <!-- مساحة الصفحات -->
+    <main class="workspace">
+
+      <!-- قائمة المحادثات -->
+      <section class="page active" id="page-chats">
+        <header class="page-header">
+          <div>
+            <span class="eyebrow">مساحة تواصلك</span>
+            <h2>المحادثات</h2>
+          </div>
+          <button class="icon-btn" data-action="new-chat" aria-label="محادثة جديدة">＋</button>
+        </header>
+
+        <div class="search-box">
+          <span>⌕</span>
+          <input id="chatSearch" type="search" placeholder="ابحث في محادثاتك...">
+        </div>
+
+        <div class="quick-filters">
+          <button class="filter-chip active" data-filter="all">الكل</button>
+          <button class="filter-chip" data-filter="unread">غير مقروءة</button>
+          <button class="filter-chip" data-filter="groups">المجموعات</button>
+          <button class="filter-chip" data-filter="favorites">المفضلة</button>
+        </div>
+
+        <div class="section-heading">
+          <h3>رسائلك الأخيرة</h3>
+          <button class="text-btn" data-action="mark-all-read">تحديد كمقروء</button>
+        </div>
+
+        <div id="chatList" class="chat-list">
+          <div class="empty-state">
+            <div class="empty-icon">✉</div>
+            <h3>محادثاتك تبدأ من هنا</h3>
+            <p>ابدأ محادثة جديدة مع أصدقائك.</p>
+            <button class="primary-btn" data-action="new-chat">ابدأ محادثة</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- نافذة المحادثة -->
+      <section class="page conversation-page" id="page-conversation">
+        <header class="conversation-header">
+          <button class="icon-btn mobile-only" data-action="back-to-chats" aria-label="رجوع">→</button>
+          <img id="conversationAvatar" class="avatar" src="assets/default-avatar.png" alt="">
+          <div class="conversation-person">
+            <h3 id="conversationName">المحادثة</h3>
+            <span id="conversationPresence">غير متصل</span>
+          </div>
+          <div class="conversation-actions">
+            <button class="icon-btn" data-action="voice-call" aria-label="مكالمة صوتية">☎</button>
+            <button class="icon-btn" data-action="video-call" aria-label="مكالمة فيديو">▣</button>
+            <button class="icon-btn" data-action="conversation-search" aria-label="بحث">⌕</button>
+            <button class="icon-btn" data-action="conversation-menu" aria-label="المزيد">⋮</button>
+          </div>
+        </header>
+
+        <div id="messageSearchPanel" class="message-search hidden">
+          <input id="messageSearchInput" type="search" placeholder="ابحث في الرسائل...">
+          <button class="icon-btn" data-action="close-message-search">×</button>
+        </div>
+
+        <div id="messageList" class="message-list">
+          <div class="conversation-welcome">
+            <span class="welcome-mark">H</span>
+            <p>ابدأ أول رسالة في هذه المحادثة</p>
+          </div>
+        </div>
+
+        <div id="replyPreview" class="reply-preview hidden">
+          <div><strong>الرد على</strong><span id="replyText"></span></div>
+          <button class="icon-btn" data-action="cancel-reply">×</button>
+        </div>
+
+        <form id="messageForm" class="message-composer">
+          <div class="composer-tools">
+            <button type="button" class="icon-btn" data-action="attach-menu" aria-label="إرفاق">＋</button>
+            <button type="button" class="icon-btn" data-action="emoji-picker" aria-label="الملصقات والرموز">☺</button>
+          </div>
+          <textarea id="messageInput" rows="1" placeholder="اكتب رسالتك..." aria-label="نص الرسالة"></textarea>
+          <button type="button" class="icon-btn" data-action="voice-record" aria-label="تسجيل صوتي">🎙</button>
+          <button class="send-btn" type="submit" aria-label="إرسال الرسالة">➤</button>
+        </form>
+      </section>
+
+      <!-- جهات الاتصال -->
+      <section class="page" id="page-contacts">
+        <header class="page-header">
+          <div><span class="eyebrow">دائرتك</span><h2>جهات الاتصال</h2></div>
+          <button class="primary-btn compact" data-action="add-contact">＋ إضافة</button>
+        </header>
+        <div class="search-box">
+          <span>⌕</span><input id="contactSearch" type="search" placeholder="ابحث بالاسم أو كود HENO">
+        </div>
+        <div class="contact-shortcuts">
+          <button class="shortcut-card" data-action="find-user"><span>⌕</span><strong>البحث عن مستخدم</strong></button>
+          <button class="shortcut-card" data-action="friend-requests"><span>♧</span><strong>طلبات الإضافة</strong></button>
+          <button class="shortcut-card" data-action="scan-qr"><span>▦</span><strong>مسح QR</strong></button>
+        </div>
+        <div id="contactList" class="contact-list"></div>
+      </section>
+
+      <!-- الحالات -->
+      <section class="page" id="page-status">
+        <header class="page-header">
+          <div><span class="eyebrow">لحظاتك اليومية</span><h2>الحالات</h2></div>
+          <button class="primary-btn compact" data-action="add-status">＋ حالتي</button>
+        </header>
+        <div class="my-status-card">
+          <img id="statusAvatar" class="avatar" src="assets/default-avatar.png" alt="">
+          <div><strong>حالتي</strong><p>شارك صورة أو فيديو أو نصاً</p></div>
+          <button class="icon-btn" data-action="add-status">＋</button>
+        </div>
+        <h3 class="section-title">آخر التحديثات</h3>
+        <div id="statusList" class="status-list"></div>
+      </section>
+
+      <!-- المجموعات -->
+      <section class="page" id="page-groups">
+        <header class="page-header">
+          <div><span class="eyebrow">معاً أفضل</span><h2>المجموعات</h2></div>
+          <button class="primary-btn compact" data-action="create-group">＋ مجموعة</button>
+        </header>
+        <div class="feature-banner">
+          <span class="banner-symbol">♧</span>
+          <h3>اجمع أصدقاءك في مكان واحد</h3>
+          <p>أنشئ مجموعة وابدأ مشاركة الرسائل والوسائط.</p>
+          <button class="primary-btn" data-action="create-group">إنشاء مجموعة</button>
+        </div>
+        <div id="groupList" class="card-list"></div>
+      </section>
+
+      <!-- القنوات -->
+      <section class="page" id="page-channels">
+        <header class="page-header">
+          <div><span class="eyebrow">تابع ما يهمك</span><h2>القنوات</h2></div>
+          <button class="primary-btn compact" data-action="create-channel">＋ قناة</button>
+        </header>
+        <div class="search-box"><span>⌕</span><input id="channelSearch" type="search" placeholder="ابحث عن قناة..."></div>
+        <div id="channelList" class="card-list"></div>
+      </section>
+
+      <!-- المجتمعات -->
+      <section class="page" id="page-communities">
+        <header class="page-header">
+          <div><span class="eyebrow">اهتمامات مشتركة</span><h2>المجتمعات</h2></div>
+          <button class="primary-btn compact" data-action="create-community">＋ مجتمع</button>
+        </header>
+        <div class="feature-banner">
+          <span class="banner-symbol">⌘</span>
+          <h3>اكتشف مجتمعك</h3>
+          <p>مساحات تجمع الأشخاص حول الاهتمامات المشتركة.</p>
+        </div>
+        <div id="communityList" class="card-list"></div>
+      </section>
+
+      <!-- المكالمات -->
+      <section class="page" id="page-calls">
+        <header class="page-header">
+          <div><span class="eyebrow">ابقَ قريباً</span><h2>المكالمات</h2></div>
+          <button class="icon-btn" data-action="new-call">＋</button>
+        </header>
+        <div class="call-actions">
+          <button class="shortcut-card" data-action="start-voice-call"><span>☎</span><strong>مكالمة صوتية</strong></button>
+          <button class="shortcut-card" data-action="start-video-call"><span>▣</span><strong>مكالمة فيديو</strong></button>
+        </div>
+        <h3 class="section-title">سجل المكالمات</h3>
+        <div id="callHistory" class="card-list"></div>
+      </section>
+
+      <!-- HENO AI -->
+      <section class="page" id="page-ai">
+        <header class="page-header">
+          <div><span class="eyebrow">مساعدك الذكي</span><h2>HENO AI</h2></div>
+          <button class="icon-btn" data-action="clear-ai-chat">↻</button>
+        </header>
+        <div class="ai-intro">
+          <div class="ai-orb">H</div>
+          <h3>أهلاً بك في HENO AI</h3>
+          <p>مساعدك الذكي للأفكار والإجابات والمساعدة.</p>
+        </div>
+        <div id="aiMessages" class="ai-messages"></div>
+        <form id="aiForm" class="message-composer">
+          <textarea id="aiInput" rows="1" placeholder="اسأل HENO AI..."></textarea>
+          <button class="send-btn" type="submit" aria-label="إرسال">➤</button>
+        </form>
+      </section>
+
+      <!-- الملف الشخصي -->
+      <section class="page" id="page-profile">
+        <header class="page-header"><div><span class="eyebrow">هويتك الرقمية</span><h2>الملف الشخصي</h2></div></header>
+        <div class="profile-cover"></div>
+        <div class="profile-main">
+          <img id="profileAvatar" class="profile-avatar" src="assets/default-avatar.png" alt="صورتك الشخصية">
+          <button class="icon-btn" data-action="edit-profile">✎ تعديل</button>
+          <h2 id="profileName">مستخدم HENO</h2>
+          <p id="profileUsername">@username</p>
+          <div class="user-code">كود HENO: <strong id="userCode">غير متاح بعد</strong><button class="text-btn" data-action="copy-user-code">نسخ</button></div>
+          <p id="profileBio">أضف نبذة تعريفية عنك</p>
+        </div>
+        <div class="profile-stats">
+          <div><strong id="friendsCount">0</strong><span>الأصدقاء</span></div>
+          <div><strong id="groupsCount">0</strong><span>المجموعات</span></div>
+          <div><strong id="statusCount">0</strong><span>الحالات</span></div>
+        </div>
+        <button class="settings-row" data-action="edit-profile">✎ <span>تعديل الملف الشخصي</span><b>‹</b></button>
+        <button class="settings-row" data-action="my-qr">▦ <span>رمز QR الخاص بي</span><b>‹</b></button>
+      </section>
+
+      <!-- الإعدادات -->
+      <section class="page" id="page-settings">
+        <header class="page-header"><div><span class="eyebrow">تحكم في تجربتك</span><h2>الإعدادات</h2></div></header>
+        <div class="settings-profile" data-page="profile">
+          <img class="avatar" id="settingsAvatar" src="assets/default-avatar.png" alt="">
+          <div><strong id="settingsName">حسابي</strong><p>إدارة الملف الشخصي</p></div>
+          <b>‹</b>
+        </div>
+
+        <h3 class="settings-heading">الحساب والخصوصية</h3>
+        <button class="settings-row" data-setting="account">♙ <span>الحساب</span><b>‹</b></button>
+        <button class="settings-row" data-setting="privacy">◉ <span>الخصوصية وآخر ظهور</span><b>‹</b></button>
+        <button class="settings-row" data-setting="security">◇ <span>الأمان والتحقق</span><b>‹</b></button>
+        <button class="settings-row" data-setting="blocked">⊘ <span>جهات الاتصال المحظورة</span><b>‹</b></button>
+
+        <h3 class="settings-heading">التخصيص</h3>
+        <button class="settings-row" data-setting="appearance">◐ <span>المظهر والألوان</span><b>‹</b></button>
+        <button class="settings-row" data-setting="language">文 <span>اللغة</span><b>‹</b></button>
+        <button class="settings-row" data-setting="notifications">♢ <span>الإشعارات</span><b>‹</b></button>
+        <button class="settings-row" data-setting="chat">▤ <span>إعدادات المحادثات</span><b>‹</b></button>
+
+        <h3 class="settings-heading">الأجهزة والبيانات</h3>
+        <button class="settings-row" data-setting="devices">▣ <span>الأجهزة المرتبطة</span><b>‹</b></button>
+        <button class="settings-row" data-setting="storage">▤ <span>التخزين والبيانات</span><b>‹</b></button>
+        <button class="settings-row" data-setting="help">؟ <span>المساعدة والدعم</span><b>‹</b></button>
+        <button class="settings-row danger-text" data-action="logout">↪ <span>تسجيل الخروج</span><b>‹</b></button>
+      </section>
+
+    </main>
+  </section>
+
+  <!-- نافذة عامة للنماذج والتفاصيل -->
+  <div id="modalLayer" class="modal-layer hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-action="close-modal"></div>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-header">
+        <h2 id="modalTitle">التفاصيل</h2>
+        <button class="icon-btn" data-action="close-modal" aria-label="إغلاق">×</button>
+      </header>
+      <div id="modalContent" class="modal-content"></div>
+    </section>
+  </div>
+
+  <!-- قائمة إرفاق الملفات -->
+  <input id="mediaPicker" type="file" accept="image/*,video/*,audio/*" hidden>
+  <input id="filePicker" type="file" hidden>
+  <input id="avatarPicker" type="file" accept="image/*" hidden>
+
+  <!-- إشعارات التطبيق -->
+  <div id="toastRegion" class="toast-region" role="status" aria-live="polite"></div>
+
+  <!-- شريط الهاتف السفلي -->
+  <nav class="mobile-nav" aria-label="التنقل">
+    <button class="mobile-nav-btn active" data-page="chats"><span>▤</span><small>المحادثات</small></button>
+    <button class="mobile-nav-btn" data-page="status"><span>◉</span><small>الحالات</small></button>
+    <button class="mobile-nav-btn" data-page="contacts"><span>♙</span><small>الأصدقاء</small></button>
+    <button class="mobile-nav-btn" data-page="calls"><span>☎</span><small>المكالمات</small></button>
+    <button class="mobile-nav-btn" data-page="settings"><span>⚙</span><small>الإعدادات</small></button>
+  </nav>
+
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
