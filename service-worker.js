@@ -1,10 +1,16 @@
-const CACHE_NAME = "heno-chat-v1";
+
+const CACHE_NAME = "heno-chat-v2";
 
 const CORE_FILES = [
   "./",
   "./index.html",
+  "./install.html",
   "./styles.css",
   "./manifest.json",
+  "./assets/icon.svg",
+  "./assets/icon-192.png",
+  "./assets/icon-512.png",
+  "./assets/icon-maskable-512.png",
   "./js/app.js",
   "./js/auth.js",
   "./js/chat.js",
@@ -14,7 +20,7 @@ const CORE_FILES = [
   "./js/settings.js"
 ];
 
-// تثبيت التطبيق وتجهيز الملفات الأساسية
+// تثبيت وتخزين الملفات الأساسية
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
@@ -22,16 +28,12 @@ self.addEventListener("install", (event) => {
 
       await Promise.allSettled(
         CORE_FILES.map(async (file) => {
-          try {
-            const response = await fetch(file, {
-              cache: "reload"
-            });
+          const response = await fetch(file, {
+            cache: "reload"
+          });
 
-            if (response.ok) {
-              await cache.put(file, response);
-            }
-          } catch (error) {
-            console.warn("لم يتم تخزين الملف:", file);
+          if (response.ok) {
+            await cache.put(file, response);
           }
         })
       );
@@ -41,7 +43,7 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// تفعيل النسخة الجديدة وحذف الكاش القديم
+// تفعيل النسخة الجديدة
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
@@ -49,8 +51,12 @@ self.addEventListener("activate", (event) => {
 
       await Promise.all(
         keys
-          .filter((key) => key.startsWith("heno-chat-") && key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
+          .filter(
+            key =>
+              key.startsWith("heno-chat-") &&
+              key !== CACHE_NAME
+          )
+          .map(key => caches.delete(key))
       );
 
       await self.clients.claim();
@@ -58,7 +64,7 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// تحميل الملفات من الكاش أولًا ثم الشبكة
+// تحميل الصفحات من الشبكة أولًا لمنع عرض نسخة قديمة
 self.addEventListener("fetch", (event) => {
   const request = event.request;
 
@@ -66,11 +72,31 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  // لا نتدخل في الطلبات الخارجية أو خدمات Firebase
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
     (async () => {
+      if (request.mode === "navigate") {
+        try {
+          const response = await fetch(request);
+          const cache = await caches.open(CACHE_NAME);
+
+          if (response.ok) {
+            await cache.put(request, response.clone());
+          }
+
+          return response;
+        } catch (error) {
+          return (
+            await caches.match(request)
+          ) || (
+            await caches.match("./index.html")
+          ) || new Response("أنت غير متصل بالإنترنت", {
+            status: 503
+          });
+        }
+      }
+
       const cached = await caches.match(request);
 
       if (cached) return cached;
@@ -85,20 +111,6 @@ self.addEventListener("fetch", (event) => {
 
         return response;
       } catch (error) {
-        if (request.mode === "navigate") {
-          return (
-            await caches.match("./index.html")
-          ) || new Response(
-            "HENO CHAT غير متصل بالإنترنت حاليًا",
-            {
-              status: 503,
-              headers: {
-                "Content-Type": "text/plain; charset=utf-8"
-              }
-            }
-          );
-        }
-
         return new Response("", { status: 503 });
       }
     })()
