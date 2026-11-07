@@ -1806,3 +1806,125 @@ img {
     transition-duration: .01ms !important;
   }
 }
+/* HENO CHAT INSTALL BANNER */
+
+.install-banner {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(92%, 440px);
+  padding: 16px;
+  border: 1px solid rgba(164, 133, 255, .35);
+  border-radius: 22px;
+  background: linear-gradient(
+    135deg,
+    rgba(35, 27, 65, .97),
+    rgba(15, 18, 39, .97)
+  );
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow: 0 15px 55px rgba(0, 0, 0, .5);
+  z-index: 99999;
+  direction: rtl;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: installAppear .5s ease;
+}
+
+.install-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.install-logo {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #9874ff, #5541d8);
+  color: white;
+  font-size: 27px;
+  font-weight: 900;
+  box-shadow: 0 5px 22px rgba(139, 105, 255, .4);
+}
+
+.install-logo i {
+  position: absolute;
+  top: -7px;
+  right: -5px;
+  color: #f6d77b;
+  font-size: 15px;
+}
+
+.install-info strong {
+  display: block;
+  color: white;
+  font-size: 16px;
+}
+
+.install-info small {
+  display: block;
+  color: #bdb5d9;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.install-button {
+  width: 100%;
+  min-height: 49px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(100deg, #9874ff, #6650ed);
+  color: white;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  box-shadow: 0 7px 22px rgba(119, 87, 255, .3);
+}
+
+.install-button:active {
+  transform: scale(.97);
+}
+
+.install-button svg {
+  width: 21px;
+  height: 21px;
+}
+
+.install-close {
+  position: absolute;
+  left: 12px;
+  top: 9px;
+  border: 0;
+  background: transparent;
+  color: #aaa1c6;
+  font-size: 23px;
+  cursor: pointer;
+}
+
+@keyframes installAppear {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 25px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (max-width: 480px) {
+  .install-banner {
+    bottom: 14px;
+  }
+}
