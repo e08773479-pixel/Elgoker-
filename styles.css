@@ -1928,3 +1928,35 @@ img {
     bottom: 14px;
   }
 }
+.heno-download-link {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: min(90%, 340px);
+  min-height: 55px;
+  padding: 12px 20px;
+  border-radius: 17px;
+  text-decoration: none;
+  color: white;
+  font-weight: 800;
+  font-size: 15px;
+  background: linear-gradient(110deg, #a477ff, #6041df);
+  border: 1px solid rgba(255,255,255,.2);
+  box-shadow: 0 10px 35px rgba(112,75,255,.4);
+  backdrop-filter: blur(15px);
+}
+
+.heno-download-link svg {
+  width: 23px;
+  height: 23px;
+}
+
+.heno-download-link:active {
+  transform: translateX(-50%) scale(.96);
+}
