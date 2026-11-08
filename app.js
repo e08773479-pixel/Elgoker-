@@ -1,178 +1,1376 @@
-const C=window.MALAK_CONFIG;
-const ready=C.SUPABASE_URL.startsWith("http") && !C.SUPABASE_ANON_KEY.includes("YOUR_");
-const sb=ready?supabase.createClient(C.SUPABASE_URL,C.SUPABASE_ANON_KEY):null;
-let user=null, profile=null, currentChat=null, realtime=null, registerMode=false;
 
-const $=id=>document.getElementById(id);
-const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
-const avatar=u=>u?.avatar_url||`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(u?.display_name||"Malak")}`;
-function toast(t){$("toast").textContent=t;$("toast").classList.add("show");setTimeout(()=>$("toast").classList.remove("show"),2600)}
-function status(t){$("authStatus").textContent=t}
-function requireDB(){if(!sb){toast("أكمل ربط Supabase في js/config.js أولاً");return false}return true}
+/* =========================================================
+   HENO CHAT — MAIN APPLICATION ENGINE
+   File: js/app.js
+   Version: 1.0.2
+   Cache: v4
+   Mobile First | Arabic RTL | Modular Architecture
+========================================================= */
 
-async function boot(){
-  if(!sb){$("authScreen").classList.remove("hidden");$("appScreen").classList.add("hidden");status("المشروع جاهز — اربط Supabase من js/config.js لتفعيل الحسابات والبيانات الحقيقية.");return}
-  const {data}=await sb.auth.getSession(); if(data.session) await enter(data.session.user);
-  sb.auth.onAuthStateChange(async(e,s)=>{if(e==="SIGNED_IN"&&s) await enter(s.user); if(e==="SIGNED_OUT") location.reload()});
-}
-async function enter(u){
-  user=u;
-  const {data:p}=await sb.from("profiles").select("*").eq("id",u.id).single();
-  profile=p||{id:u.id,display_name:u.email?.split("@")[0]||"عضو جديد",avatar_url:null,bio:""};
-  $("authScreen").classList.add("hidden");$("appScreen").classList.remove("hidden");
-  $("topAvatar").src=avatar(profile);$("composerAvatar").src=avatar(profile);
-  $("sideProfile").innerHTML=`<div class="side-profile"><img class="avatar" src="${avatar(profile)}"><b>${esc(profile.display_name)}</b><small class="muted">${esc(profile.bio||"عضو في Malak")}</small></div>`;
-  $("setName").value=profile.display_name||"";$("setBio").value=profile.bio||"";
-  await loadHome(); await loadSuggestions(); await loadConversations();
-  sb.channel("malak-live").on("postgres_changes",{event:"*",schema:"public",table:"messages"},()=>loadConversations()).subscribe();
-}
-async function loadHome(){await loadStories();await loadFeed("feed");await loadOnline()}
-async function loadStories(){
-  const {data}=await sb.from("stories").select("*,profiles:author_id(id,display_name,avatar_url)").gt("expires_at",new Date().toISOString()).order("created_at",{ascending:false}).limit(20);
-  $("stories").innerHTML=`<button class="story add" id="addStory">＋<span>إضافة قصة</span></button>`+(data||[]).map(s=>`<button class="story" data-story="${s.id}"><img src="${esc(s.media_url)}"><span>${esc(s.profiles?.display_name)}</span></button>`).join("");
-  $("addStory").onclick=()=>storyModal();
-}
-async function loadFeed(target){
-  const {data,error}=await sb.from("posts").select("*,profiles:author_id(id,display_name,avatar_url),likes(user_id),comments(count)").order("created_at",{ascending:false}).limit(50);
-  if(error){$(target).innerHTML=`<div class="card post">${esc(error.message)}</div>`;return}
-  $(target).innerHTML=(data||[]).map(postCard).join("")||`<div class="card post"><p class="muted">لا توجد منشورات حتى الآن.</p></div>`;
-  (data||[]).forEach(p=>{const b=document.querySelector(`[data-like="${p.id}"]`);if(b)b.onclick=()=>toggleLike(p.id,p.likes?.some(x=>x.user_id===user.id));});
-}
-function postCard(p){
-  const liked=p.likes?.some(x=>x.user_id===user.id), count=p.likes?.length||0;
-  const media=p.media_url?(p.media_type==="video"?`<video class="post-media" src="${esc(p.media_url)}" controls></video>`:`<img class="post-media" src="${esc(p.media_url)}">`):"";
-  return `<article class="card post"><div class="post-head"><img src="${avatar(p.profiles)}"><div><b>${esc(p.profiles?.display_name||"عضو")}</b><small>${new Date(p.created_at).toLocaleString("ar-EG")}</small></div><button class="more">•••</button></div><p class="post-text">${esc(p.body)}</p>${media}<div class="post-stats"><span>${count} إعجاب</span><span>${p.comments?.[0]?.count||0} تعليق</span></div><div class="post-buttons"><button class="${liked?"liked":""}" data-like="${p.id}">♥ إعجاب</button><button onclick="commentPost('${p.id}')">💬 تعليق</button><button onclick="sharePost('${p.id}')">↗ مشاركة</button></div></article>`;
-}
-async function toggleLike(postId,liked){
-  if(liked) await sb.from("likes").delete().eq("post_id",postId).eq("user_id",user.id);
-  else await sb.from("likes").insert({post_id:postId,user_id:user.id});
-  await loadFeed("feed");
-}
-window.commentPost=async id=>{const body=prompt("اكتب تعليقك");if(!body)return;await sb.from("comments").insert({post_id:id,user_id:user.id,body});await loadFeed("feed")}
-window.sharePost=async id=>{await sb.from("shares").insert({post_id:id,user_id:user.id});toast("تم تسجيل المشاركة")}
-async function publish(){
-  const body=$("postText").value.trim(), img=$("postImage").files[0], vid=$("postVideo").files[0];
-  if(!body&&!img&&!vid)return toast("اكتب شيئًا أو اختر صورة/فيديو");
-  let media_url=null,media_type=null,file=img||vid;
-  if(file){
-    const path=`${user.id}/${crypto.randomUUID()}-${file.name.replace(/[^\w.\-]/g,"_")}`;
-    const {error}=await sb.storage.from("media").upload(path,file,{upsert:false});
-    if(error)return toast("فشل رفع الملف: "+error.message);
-    media_url=sb.storage.from("media").getPublicUrl(path).data.publicUrl;media_type=vid?"video":"image";
-  }
-  const {error}=await sb.from("posts").insert({author_id:user.id,body,media_url,media_type,visibility:$("postVisibility").value});
-  if(error)return toast(error.message);
-  $("postText").value="";$("postImage").value="";$("postVideo").value="";toast("تم نشر المنشور");await loadFeed("feed");
-}
-async function loadSuggestions(){
-  const {data}=await sb.from("profiles").select("*").neq("id",user.id).limit(10);
-  $("suggestions").innerHTML=(data||[]).map(p=>`<div class="person mini-row"><img src="${avatar(p)}"><div><b>${esc(p.display_name)}</b><button class="primary small" onclick="follow('${p.id}')">متابعة</button></div></div>`).join("");
-  $("friendsGrid").innerHTML=(data||[]).map(p=>`<div class="card person"><img src="${avatar(p)}"><h3>${esc(p.display_name)}</h3><p>${esc(p.bio||"عضو في Malak")}</p><button class="primary" onclick="follow('${p.id}')">متابعة</button></div>`).join("");
-}
-window.follow=async id=>{const {error}=await sb.from("follows").upsert({follower_id:user.id,following_id:id});toast(error?error.message:"تمت المتابعة")}
-async function loadOnline(){const {data}=await sb.from("profiles").select("*").eq("is_online",true).neq("id",user.id).limit(8);$("onlineUsers").innerHTML=(data||[]).map(p=>`<div class="mini-row"><img class="avatar" src="${avatar(p)}"><b>${esc(p.display_name)}</b></div>`).join("")}
-async function loadConversations(){
-  const {data}=await sb.from("conversations").select("id,created_at,conversation_members!inner(user_id,profiles:user_id(id,display_name,avatar_url))").eq("conversation_members.user_id",user.id).order("created_at",{ascending:false});
-  $("conversationList").innerHTML=(data||[]).map(c=>{const other=c.conversation_members.find(m=>m.user_id!==user.id)?.profiles;return `<button class="conv" onclick="openChat('${c.id}','${esc(other?.id||"")}')"><img src="${avatar(other)}"><div><b>${esc(other?.display_name||"محادثة")}</b><small>فتح المحادثة</small></div></button>`}).join("")||`<div class="empty">لا توجد محادثات</div>`;
-}
-window.openChat=async(cid,otherId)=>{
-  currentChat={cid,otherId};$("pageMessages").querySelector(".messages-layout").classList.add("chat-open");
-  const {data:other}=await sb.from("profiles").select("*").eq("id",otherId).single();
-  const {data:msgs}=await sb.from("messages").select("*").eq("conversation_id",cid).order("created_at");
-  $("chatPanel").innerHTML=`<div class="chat-head"><img src="${avatar(other)}"><b>${esc(other?.display_name||"مستخدم")}</b></div><div id="chatMessages" class="chat-messages">${(msgs||[]).map(m=>`<div class="bubble ${m.sender_id===user.id?"me":"them"}">${esc(m.body)}</div>`).join("")}</div><form id="chatForm" class="chat-input"><input id="chatText" placeholder="اكتب رسالة..." autocomplete="off"><button class="primary">إرسال</button></form>`;
-  $("chatForm").onsubmit=async e=>{e.preventDefault();const body=$("chatText").value.trim();if(!body)return;await sb.from("messages").insert({conversation_id:cid,sender_id:user.id,body});$("chatText").value="";openChat(cid,otherId)};
-}
-async function storyModal(){ $("modalBody").innerHTML=`<h2>إضافة قصة</h2><input id="storyFile" type="file" accept="image/*,video/*"><button class="primary" id="saveStory">نشر القصة</button>`;$("modal").classList.remove("hidden");$("saveStory").onclick=async()=>{const f=$("storyFile").files[0];if(!f)return;const path=`stories/${user.id}/${crypto.randomUUID()}-${f.name.replace(/[^\w.\-]/g,"_")}`;const up=await sb.storage.from("media").upload(path,f);if(up.error)return toast(up.error.message);const url=sb.storage.from("media").getPublicUrl(path).data.publicUrl;await sb.from("stories").insert({author_id:user.id,media_url:url,media_type:f.type.startsWith("video")?"video":"image"});$("modal").classList.add("hidden");loadStories()}}
-$("publishBtn").onclick=publish;
-$("closeModal").onclick=()=>$("modal").classList.add("hidden");
-$("mobileMenu").onclick=()=>$("sidebar").classList.toggle("open");
-$("logoutBtn").onclick=async()=>{if(sb)await sb.auth.signOut()};
-$("toggleRegister").onclick=()=>{registerMode=!registerMode;$("displayName").classList.toggle("register-only",!registerMode);$("authSubmit").textContent=registerMode?"إنشاء الحساب":"تسجيل الدخول";$("toggleRegister").textContent=registerMode?"لدي حساب بالفعل":"إنشاء حساب جديد"};
-$("authForm").onsubmit=async e=>{e.preventDefault();if(!requireDB())return;const email=$("email").value.trim(),password=$("password").value; if(registerMode){const name=$("displayName").value.trim();if(!name)return status("اكتب اسمك");const {data,error}=await sb.auth.signUp({email,password,options:{data:{display_name:name}}});if(error)return status(error.message);if(!data.session)status("تم إنشاء الحساب. راجع بريدك إذا كان تأكيد البريد مفعلاً.");else toast("تم إنشاء الحساب");}else{const {error}=await sb.auth.signInWithPassword({email,password});if(error)status(error.message)}};
-$("googleBtn").onclick=async()=>{if(!requireDB())return;const {error}=await sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname}});if(error)status(error.message)};
-$("phoneBtn").onclick=()=>status("لتفعيل الهاتف: فعّل Phone Auth في Supabase ثم نضيف شاشة OTP في الخطوة التالية.");
-document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>showPage(b.dataset.page));
-function showPage(p){document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));$("page"+p[0].toUpperCase()+p.slice(1)).classList.remove("hidden");document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active",x.dataset.page===p));$("sidebar").classList.remove("open");if(p==="explore")loadFeed("exploreFeed");if(p==="profile")loadProfile();if(p==="groups")loadGroups()}
-async function loadProfile(){const {data:posts}=await sb.from("posts").select("*,profiles:author_id(id,display_name,avatar_url),likes(user_id),comments(count)").eq("author_id",user.id).order("created_at",{ascending:false});$("profileView").innerHTML=`<div class="card profile-cover"><img class="avatar big" src="${avatar(profile)}"><h2>${esc(profile.display_name)}</h2><p>${esc(profile.bio||"")}</p><div class="profile-stats"><b>${posts?.length||0}<small> منشور</small></b></div></div><div id="myPosts" style="margin-top:15px">${(posts||[]).map(postCard).join("")}</div>`}
-async function loadGroups(){const {data}=await sb.from("groups").select("*").order("created_at",{ascending:false});$("groupsGrid").innerHTML=(data||[]).map(g=>`<div class="card group"><img src="${g.cover_url||"https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=500&q=70"}"><h3>${esc(g.name)}</h3><p>${esc(g.description||"")}</p><button class="primary">عرض المجموعة</button></div>`).join("")}
-$("saveProfile").onclick=async()=>{const name=$("setName").value.trim(),bio=$("setBio").value.trim();const {error}=await sb.from("profiles").update({display_name:name,bio}).eq("id",user.id);if(error)return toast(error.message);profile={...profile,display_name:name,bio};toast("تم حفظ الملف");enter(user)}
-$("searchInput").oninput=async e=>{const q=e.target.value.trim();if(q.length<2)return;const {data}=await sb.from("profiles").select("*").ilike("display_name",`%${q}%`).limit(8);$("suggestions").innerHTML=(data||[]).map(p=>`<div class="mini-row"><img class="avatar" src="${avatar(p)}"><b>${esc(p.display_name)}</b></div>`).join("")}
-boot();
-/* =================================
-   HENO CHAT - APP INSTALL SYSTEM
-================================= */
+const HENO = (() => {
+  "use strict";
 
-(() => {
-  const banner = document.getElementById("installBanner");
-  const installButton = document.getElementById("installAppButton");
-  const closeButton = document.getElementById("closeInstallBanner");
+  /* -------------------------
+     APPLICATION CONFIGURATION
+  ------------------------- */
 
-  if (!banner || !installButton || !closeButton) return;
-
-  let deferredPrompt = null;
-
-  const isInstalled = () => {
-    return window.matchMedia("(display-mode: standalone)").matches ||
-      window.navigator.standalone === true;
+  const CONFIG = {
+    name: "HENO CHAT",
+    version: "1.0.2",
+    cacheVersion: "v4",
+    splashDuration: 5000,
+    defaultPage: "chats",
+    direction: "rtl"
   };
 
-  if (isInstalled()) {
-    banner.style.display = "none";
-    return;
+  const state = {
+    initialized: false,
+    previewMode: false,
+    currentPage: CONFIG.defaultPage,
+    previousPage: null,
+    sidebarOpen: false,
+    modalOpen: false,
+    activeTab: "login"
+  };
+
+  const elements = {};
+
+  /* -------------------------
+     DOM HELPERS
+  ------------------------- */
+
+  const $ = (selector, root = document) =>
+    root.querySelector(selector);
+
+  const $$ = (selector, root = document) =>
+    [...root.querySelectorAll(selector)];
+
+  function cacheElements() {
+    elements.splash = $("#splash");
+    elements.auth = $("#auth-screen");
+    elements.app = $("#app-screen");
+
+    elements.previewButton = $("#preview-button");
+    elements.pageContainer = $("#page-container");
+
+    elements.sidebar = $("#app-sidebar");
+    elements.main = $("#app-main");
+    elements.header = $("#app-header");
+
+    elements.modalLayer = $("#modal-layer");
+    elements.toastRegion = $("#toast-region");
   }
 
-  // استقبال نافذة التثبيت من المتصفح
-  window.addEventListener("beforeinstallprompt", (event) => {
-    event.preventDefault();
-    deferredPrompt = event;
-    banner.style.display = "flex";
-  });
+  /* -------------------------
+     SAFE UTILITIES
+  ------------------------- */
 
-  // زر تثبيت التطبيق
-  installButton.addEventListener("click", async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
+  function escapeHTML(value = "") {
+    return String(value).replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    })[char]);
+  }
 
-      const result = await deferredPrompt.userChoice;
+  function showElement(element) {
+    if (!element) return;
 
-      if (result.outcome === "accepted") {
-        banner.style.display = "none";
-      }
+    element.hidden = false;
+    element.style.display = "";
+    element.classList.remove("is-hidden");
+  }
 
-      deferredPrompt = null;
+  function hideElement(element) {
+    if (!element) return;
+
+    element.hidden = true;
+    element.classList.add("is-hidden");
+  }
+
+  function setText(element, value) {
+    if (element) {
+      element.textContent = value;
+    }
+  }
+
+  /* -------------------------
+     TOAST NOTIFICATIONS
+  ------------------------- */
+
+  function toast(message, type = "info") {
+    if (!elements.toastRegion) {
+      console.log(`[HENO ${type}]`, message);
       return;
     }
 
-    // تعليمات التثبيت إذا لم يوفر المتصفح النافذة
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const item = document.createElement("div");
+    item.className = `heno-toast heno-toast-${type}`;
+    item.setAttribute("role", "status");
 
-    if (isIOS) {
-      alert(
-        "لتثبيت HENO CHAT على هاتفك:\n\n" +
-        "1- اضغط على زر المشاركة في Safari.\n" +
-        "2- اختر إضافة إلى الشاشة الرئيسية.\n" +
-        "3- اضغط إضافة."
+    const icon = document.createElement("span");
+    icon.className = "heno-toast-indicator";
+    icon.setAttribute("aria-hidden", "true");
+
+    const text = document.createElement("span");
+    text.textContent = message;
+
+    item.append(icon, text);
+    elements.toastRegion.appendChild(item);
+
+    requestAnimationFrame(() => {
+      item.classList.add("visible");
+    });
+
+    window.setTimeout(() => {
+      item.classList.remove("visible");
+
+      window.setTimeout(() => item.remove(), 250);
+    }, 3200);
+  }
+
+  /* -------------------------
+     SPLASH SCREEN
+  ------------------------- */
+
+  function startSplash() {
+    if (!elements.splash) {
+      showAuth();
+      return;
+    }
+
+    showElement(elements.splash);
+    hideElement(elements.auth);
+    hideElement(elements.app);
+
+    window.setTimeout(() => {
+      elements.splash.classList.add("splash-leaving");
+
+      window.setTimeout(() => {
+        hideElement(elements.splash);
+        elements.splash.classList.remove("splash-leaving");
+        showAuth();
+      }, 450);
+    }, CONFIG.splashDuration);
+  }
+
+  /* -------------------------
+     AUTH SCREEN
+  ------------------------- */
+
+  function showAuth() {
+    hideElement(elements.splash);
+    hideElement(elements.app);
+    showElement(elements.auth);
+
+    document.body.classList.remove("app-active");
+    document.body.classList.add("auth-active");
+  }
+
+  function switchAuthTab(tab) {
+    if (!["login", "register"].includes(tab)) return;
+
+    state.activeTab = tab;
+
+    const loginTab = $("#login-tab");
+    const registerTab = $("#register-tab");
+
+    const loginForm = $("#login-form");
+    const registerForm = $("#register-form");
+
+    [loginTab, registerTab].forEach(button => {
+      if (!button) return;
+
+      const active =
+        button.id === `${tab}-tab`;
+
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+
+    if (loginForm) {
+      loginForm.hidden = tab !== "login";
+    }
+
+    if (registerForm) {
+      registerForm.hidden = tab !== "register";
+    }
+  }
+
+  /* -------------------------
+     PREVIEW MODE
+     Interface preview only.
+     No account is created.
+     No messages are sent.
+  ------------------------- */
+
+  function enterPreviewMode() {
+    state.previewMode = true;
+    state.currentPage = CONFIG.defaultPage;
+
+    hideElement(elements.auth);
+    showElement(elements.app);
+
+    document.body.classList.remove("auth-active");
+    document.body.classList.add("app-active", "preview-active");
+
+    buildApplicationShell();
+    navigate(CONFIG.defaultPage);
+
+    toast("أنت الآن تستعرض واجهات HENO CHAT", "success");
+  }
+
+  function exitPreviewMode() {
+    state.previewMode = false;
+    state.sidebarOpen = false;
+
+    document.body.classList.remove(
+      "app-active",
+      "preview-active"
+    );
+
+    showAuth();
+    closeModal();
+
+    toast("تم الرجوع إلى شاشة الدخول");
+  }
+
+  /* -------------------------
+     APPLICATION NAVIGATION
+  ------------------------- */
+
+  const pages = {
+    chats: {
+      title: "المحادثات",
+      subtitle: "محادثاتك",
+      icon: "message-circle",
+      render: renderChats
+    },
+
+    status: {
+      title: "الحالة",
+      subtitle: "الحالات",
+      icon: "circle-dot",
+      render: renderStatus
+    },
+
+    calls: {
+      title: "المكالمات",
+      subtitle: "المكالمات",
+      icon: "phone",
+      render: renderCalls
+    },
+
+    communities: {
+      title: "المجتمعات",
+      subtitle: "مجتمعات HENO",
+      icon: "users",
+      render: renderCommunities
+    },
+
+    channels: {
+      title: "القنوات",
+      subtitle: "القنوات",
+      icon: "radio",
+      render: renderChannels
+    },
+
+    contacts: {
+      title: "جهات الاتصال",
+      subtitle: "الأشخاص",
+      icon: "contact",
+      render: renderContacts
+    },
+
+    settings: {
+      title: "الإعدادات",
+      subtitle: "إعدادات التطبيق",
+      icon: "settings",
+      render: renderSettings
+    },
+
+    profile: {
+      title: "الملف الشخصي",
+      subtitle: "حسابك",
+      icon: "user-round",
+      render: renderProfile
+    }
+  };
+
+  function navigate(pageName) {
+    const page = pages[pageName];
+
+    if (!page) {
+      toast("هذا القسم غير متاح حاليًا", "error");
+      return;
+    }
+
+    state.previousPage = state.currentPage;
+    state.currentPage = pageName;
+
+    updateNavigation(pageName);
+    updateHeader(page);
+
+    if (elements.pageContainer) {
+      elements.pageContainer.innerHTML = "";
+      elements.pageContainer.appendChild(page.render());
+    }
+
+    closeSidebar();
+
+    document.dispatchEvent(
+      new CustomEvent("heno:pagechange", {
+        detail: { page: pageName }
+      })
+    );
+  }
+
+  function updateNavigation(activePage) {
+    $$("[data-page]").forEach(button => {
+      const active =
+        button.dataset.page === activePage;
+
+      button.classList.toggle("active", active);
+
+      if (active) {
+        button.setAttribute("aria-current", "page");
+      } else {
+        button.removeAttribute("aria-current");
+      }
+    });
+  }
+
+  function updateHeader(page) {
+    const title = $("#header-title");
+    const subtitle = $("#header-subtitle");
+
+    setText(title, page.title);
+    setText(subtitle, page.subtitle);
+
+    if (elements.header) {
+      elements.header.dataset.currentPage =
+        state.currentPage;
+    }
+  }
+
+  /* -------------------------
+     APPLICATION SHELL
+  ------------------------- */
+
+  function buildApplicationShell() {
+    if (!elements.app) return;
+
+    showElement(elements.app);
+
+    const existingNavigation =
+      $("#heno-navigation", elements.app);
+
+    if (existingNavigation) {
+      createPreviewIndicator();
+      return;
+    }
+
+    const navigation = document.createElement("nav");
+
+    navigation.id = "heno-navigation";
+    navigation.className = "heno-navigation";
+    navigation.setAttribute("aria-label", "التنقل الرئيسي");
+
+    const navigationItems = [
+      ["chats", "المحادثات", "message-circle"],
+      ["status", "الحالة", "circle-dot"],
+      ["calls", "المكالمات", "phone"],
+      ["communities", "المجتمعات", "users"],
+      ["channels", "القنوات", "radio"],
+      ["contacts", "جهات الاتصال", "contact"],
+      ["settings", "الإعدادات", "settings"]
+    ];
+
+    navigation.innerHTML = navigationItems.map(item => `
+      <button
+        type="button"
+        class="heno-nav-item"
+        data-page="${item[0]}"
+        aria-label="${item[1]}"
+      >
+        <span class="nav-icon" aria-hidden="true">
+          ${getIcon(item[2])}
+        </span>
+        <span class="nav-label">${item[1]}</span>
+      </button>
+    `).join("");
+
+    if (elements.sidebar) {
+      elements.sidebar.appendChild(navigation);
+    }
+
+    createPreviewIndicator();
+  }
+
+  function createPreviewIndicator() {
+    if (!state.previewMode || !elements.app) return;
+
+    let indicator = $("#preview-indicator");
+
+    if (!indicator) {
+      indicator = document.createElement("div");
+      indicator.id = "preview-indicator";
+      indicator.className = "preview-indicator";
+
+      indicator.innerHTML = `
+        <span>معاينة الواجهات</span>
+        <button type="button" data-action="exit-preview">
+          خروج
+        </button>
+      `;
+
+      elements.app.prepend(indicator);
+    }
+  }
+
+  /* -------------------------
+     SVG ICON SYSTEM
+  ------------------------- */
+
+  const iconPaths = {
+    "message-circle": `
+      <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/>
+    `,
+    "circle-dot": `
+      <circle cx="12" cy="12" r="10"/>
+      <circle cx="12" cy="12" r="3"/>
+    `,
+    phone: `
+      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.4 2.8a2 2 0 0 1-.6 1.7L7 10a16 16 0 0 0 6 6l1.8-1.9a2 2 0 0 1 1.7-.6l2.8.4a2 2 0 0 1 1.7 2z"/>
+    `,
+    users: `
+      <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+      <circle cx="10" cy="7" r="4"/>
+      <path d="M20 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>
+    `,
+    radio: `
+      <circle cx="12" cy="12" r="2"/>
+      <path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4"/>
+      <path d="M19 5a10 10 0 0 1 0 14M5 19a10 10 0 0 1 0-14"/>
+    `,
+    contact: `
+      <rect x="3" y="3" width="18" height="18" rx="3"/>
+      <circle cx="9" cy="9" r="2.5"/>
+      <path d="M5.5 17a3.5 3.5 0 0 1 7 0M15 8h3M15 12h3M15 16h3"/>
+    `,
+    settings: `
+      <circle cx="12" cy="12" r="3"/>
+      <path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.7 1l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.7-1l-1.7.6-1.4-2.4 1.4-1.1a8 8 0 0 1 0-2l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.7-1l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.7 1l1.7-.6 1.4 2.4-1.4 1.1a8 8 0 0 1 0 2z"/>
+    `,
+    "user-round": `
+      <circle cx="12" cy="8" r="4"/>
+      <path d="M5 21a7 7 0 0 1 14 0"/>
+    `,
+    search: `
+      <circle cx="11" cy="11" r="7"/>
+      <path d="m20 20-4-4"/>
+    `,
+    plus: `
+      <path d="M12 5v14M5 12h14"/>
+    `
+  };
+
+  function getIcon(name) {
+    const path = iconPaths[name] || iconPaths.settings;
+
+    return `
+      <svg
+        viewBox="0 0 24 24"
+        width="22"
+        height="22"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.7"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        ${path}
+      </svg>
+    `;
+  }
+
+  /* -------------------------
+     PAGE COMPONENT HELPERS
+  ------------------------- */
+
+  function createPage(title, description, iconName) {
+    const section = document.createElement("section");
+
+    section.className = "heno-page";
+    section.dataset.pageContent = state.currentPage;
+
+    const heading = document.createElement("div");
+    heading.className = "heno-page-heading";
+
+    heading.innerHTML = `
+      <div class="heno-page-heading-icon">
+        ${getIcon(iconName)}
+      </div>
+      <div>
+        <h2>${escapeHTML(title)}</h2>
+        <p>${escapeHTML(description)}</p>
+      </div>
+    `;
+
+    section.appendChild(heading);
+
+    return section;
+  }
+
+  function createEmptyState(title, description, iconName) {
+    const box = document.createElement("div");
+
+    box.className = "heno-empty-state";
+
+    box.innerHTML = `
+      <div class="empty-state-icon">
+        ${getIcon(iconName)}
+      </div>
+      <h3>${escapeHTML(title)}</h3>
+      <p>${escapeHTML(description)}</p>
+    `;
+
+    return box;
+  }
+
+  function createActionButton(label, action, iconName = "plus") {
+    const button = document.createElement("button");
+
+    button.type = "button";
+    button.className = "heno-action-button";
+    button.dataset.action = action;
+
+    button.innerHTML = `
+      ${getIcon(iconName)}
+      <span>${escapeHTML(label)}</span>
+    `;
+
+    return button;
+  }
+
+  /* -------------------------
+     CHATS PAGE
+  ------------------------- */
+
+  function renderChats() {
+    const page = createPage(
+      "المحادثات",
+      "كل محادثاتك في مكان واحد",
+      "message-circle"
+    );
+
+    const toolbar = document.createElement("div");
+    toolbar.className = "heno-page-toolbar";
+
+    const search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "ابحث عن محادثة أو شخص";
+    search.className = "heno-search-input";
+    search.setAttribute("aria-label", "البحث في المحادثات");
+
+    toolbar.appendChild(search);
+    toolbar.appendChild(
+      createActionButton("محادثة جديدة", "new-chat")
+    );
+
+    page.appendChild(toolbar);
+
+    const list = document.createElement("div");
+    list.className = "heno-chat-list";
+
+    list.appendChild(
+      createEmptyState(
+        "المحادثات",
+        "ستظهر هنا محادثات حسابك بعد تسجيل الدخول.",
+        "message-circle"
+      )
+    );
+
+    page.appendChild(list);
+
+    return page;
+  }
+
+  /* -------------------------
+     STATUS PAGE
+  ------------------------- */
+
+  function renderStatus() {
+    const page = createPage(
+      "الحالة",
+      "شارك لحظاتك مع جهات اتصالك",
+      "circle-dot"
+    );
+
+    const toolbar = document.createElement("div");
+    toolbar.className = "heno-page-toolbar";
+
+    toolbar.appendChild(
+      createActionButton("إضافة حالة", "add-status")
+    );
+
+    page.appendChild(toolbar);
+
+    page.appendChild(
+      createEmptyState(
+        "الحالات",
+        "ستظهر تحديثات الحالة الخاصة بحسابك هنا.",
+        "circle-dot"
+      )
+    );
+
+    return page;
+  }
+
+  /* -------------------------
+     CALLS PAGE
+  ------------------------- */
+
+  function renderCalls() {
+    const page = createPage(
+      "المكالمات",
+      "المكالمات الصوتية والمرئية",
+      "phone"
+    );
+
+    page.appendChild(
+      createActionButton("مكالمة جديدة", "new-call", "phone")
+    );
+
+    page.appendChild(
+      createEmptyState(
+        "سجل المكالمات",
+        "سيظهر سجل مكالمات حسابك هنا.",
+        "phone"
+      )
+    );
+
+    return page;
+  }
+
+  /* -------------------------
+     COMMUNITIES PAGE
+  ------------------------- */
+
+  function renderCommunities() {
+    const page = createPage(
+      "المجتمعات",
+      "اجمع المجموعات ذات الاهتمام المشترك",
+      "users"
+    );
+
+    page.appendChild(
+      createActionButton(
+        "إنشاء مجتمع",
+        "create-community"
+      )
+    );
+
+    page.appendChild(
+      createEmptyState(
+        "المجتمعات",
+        "ستظهر المجتمعات التي تنشئها أو تنضم إليها هنا.",
+        "users"
+      )
+    );
+
+    return page;
+  }
+
+  /* -------------------------
+     CHANNELS PAGE
+  ------------------------- */
+
+  function renderChannels() {
+    const page = createPage(
+      "القنوات",
+      "تابع التحديثات والمحتوى من القنوات",
+      "radio"
+    );
+
+    page.appendChild(
+      createActionButton(
+        "إنشاء قناة",
+        "create-channel"
+      )
+    );
+
+    page.appendChild(
+      createEmptyState(
+        "القنوات",
+        "ستظهر القنوات التي تتابعها هنا.",
+        "radio"
+      )
+    );
+
+    return page;
+  }
+
+  /* -------------------------
+     CONTACTS PAGE
+  ------------------------- */
+
+  function renderContacts() {
+    const page = createPage(
+      "جهات الاتصال",
+      "ابحث عن الأشخاص وتواصل معهم",
+      "contact"
+    );
+
+    const search = document.createElement("input");
+
+    search.type = "search";
+    search.placeholder = "ابحث بالاسم أو كود HENO";
+    search.className = "heno-search-input";
+
+    page.appendChild(search);
+
+    page.appendChild(
+      createActionButton(
+        "إضافة جهة اتصال",
+        "add-contact"
+      )
+    );
+
+    page.appendChild(
+      createEmptyState(
+        "جهات الاتصال",
+        "ستظهر جهات اتصال حسابك هنا.",
+        "contact"
+      )
+    );
+
+    return page;
+  }
+
+  /* -------------------------
+     SETTINGS PAGE
+  ------------------------- */
+
+  function renderSettings() {
+    const page = createPage(
+      "الإعدادات",
+      "تحكم في حسابك وتجربتك داخل HENO",
+      "settings"
+    );
+
+    const settings = [
+      ["account", "الحساب", "إدارة معلومات حسابك"],
+      ["privacy", "الخصوصية", "التحكم في ظهور معلوماتك"],
+      ["security", "الأمان", "إعدادات حماية الحساب"],
+      ["notifications", "الإشعارات", "إدارة التنبيهات"],
+      ["appearance", "المظهر", "الألوان والوضع الليلي"],
+      ["language", "اللغة", "لغة التطبيق"],
+      ["chats-settings", "الدردشات", "إعدادات المحادثات"],
+      ["storage", "التخزين والبيانات", "إدارة الملفات والمساحة"],
+      ["linked-devices", "الأجهزة المرتبطة", "إدارة الأجهزة"],
+      ["blocked", "المحظورون", "إدارة الحسابات المحظورة"],
+      ["help", "المساعدة", "الدعم والأسئلة الشائعة"]
+    ];
+
+    const list = document.createElement("div");
+    list.className = "heno-settings-list";
+
+    settings.forEach(([id, title, description]) => {
+      const button = document.createElement("button");
+
+      button.type = "button";
+      button.className = "heno-settings-item";
+      button.dataset.settingsSection = id;
+
+      button.innerHTML = `
+        <span class="settings-item-content">
+          <strong>${escapeHTML(title)}</strong>
+          <small>${escapeHTML(description)}</small>
+        </span>
+        <span class="settings-arrow" aria-hidden="true">‹</span>
+      `;
+
+      list.appendChild(button);
+    });
+
+    page.appendChild(list);
+
+    return page;
+  }
+
+  /* -------------------------
+     PROFILE PAGE
+  ------------------------- */
+
+  function renderProfile() {
+    const page = createPage(
+      "الملف الشخصي",
+      "إدارة صورتك ومعلومات حسابك",
+      "user-round"
+    );
+
+    page.appendChild(
+      createEmptyState(
+        "الملف الشخصي",
+        "ستظهر معلومات حسابك بعد تسجيل الدخول.",
+        "user-round"
+      )
+    );
+
+    return page;
+  }
+
+  /* -------------------------
+     SIDEBAR
+  ------------------------- */
+
+  function openSidebar() {
+    if (!elements.sidebar) return;
+
+    state.sidebarOpen = true;
+    elements.sidebar.classList.add("sidebar-open");
+
+    document.body.classList.add("sidebar-visible");
+  }
+
+  function closeSidebar() {
+    if (!elements.sidebar) return;
+
+    state.sidebarOpen = false;
+    elements.sidebar.classList.remove("sidebar-open");
+
+    document.body.classList.remove("sidebar-visible");
+  }
+
+  function toggleSidebar() {
+    state.sidebarOpen ? closeSidebar() : openSidebar();
+  }
+
+  /* -------------------------
+     MODAL SYSTEM
+  ------------------------- */
+
+  function openModal(title, content) {
+    if (!elements.modalLayer) return;
+
+    state.modalOpen = true;
+
+    elements.modalLayer.innerHTML = `
+      <div class="heno-modal-backdrop" data-action="close-modal">
+        <section
+          class="heno-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="${escapeHTML(title)}"
+        >
+          <header class="heno-modal-header">
+            <h3>${escapeHTML(title)}</h3>
+            <button
+              type="button"
+              class="heno-modal-close"
+              data-action="close-modal"
+              aria-label="إغلاق"
+            >×</button>
+          </header>
+          <div class="heno-modal-body"></div>
+        </section>
+      </div>
+    `;
+
+    const body = $(".heno-modal-body", elements.modalLayer);
+
+    if (typeof content === "string") {
+      body.textContent = content;
+    } else if (content instanceof Node) {
+      body.appendChild(content);
+    }
+
+    showElement(elements.modalLayer);
+
+    document.body.classList.add("modal-visible");
+
+    const closeButton = $(".heno-modal-close", elements.modalLayer);
+    closeButton?.focus();
+  }
+
+  function closeModal() {
+    if (!elements.modalLayer) return;
+
+    elements.modalLayer.innerHTML = "";
+    hideElement(elements.modalLayer);
+
+    state.modalOpen = false;
+
+    document.body.classList.remove("modal-visible");
+  }
+
+  /* -------------------------
+     ACTION ROUTER
+  ------------------------- */
+
+  function handleAction(action, element) {
+    switch (action) {
+      case "enter-preview":
+        enterPreviewMode();
+        break;
+
+      case "exit-preview":
+        exitPreviewMode();
+        break;
+
+      case "close-modal":
+        closeModal();
+        break;
+
+      case "new-chat":
+        openModal(
+          "محادثة جديدة",
+          "ابحث عن شخص باستخدام اسم المستخدم أو كود HENO."
+        );
+        break;
+
+      case "add-contact":
+        openModal(
+          "إضافة جهة اتصال",
+          "يمكن البحث عن الأشخاص باستخدام كود HENO."
+        );
+        break;
+
+      case "add-status":
+        openModal(
+          "إضافة حالة",
+          "يمكنك مشاركة صورة أو فيديو أو نص في حالتك."
+        );
+        break;
+
+      case "new-call":
+        openModal(
+          "مكالمة جديدة",
+          "اختر جهة اتصال لبدء مكالمة."
+        );
+        break;
+
+      case "create-community":
+        openModal(
+          "إنشاء مجتمع",
+          "أنشئ مجتمعًا لتنظيم مجموعاتك."
+        );
+        break;
+
+      case "create-channel":
+        openModal(
+          "إنشاء قناة",
+          "أنشئ قناة لمشاركة التحديثات."
+        );
+        break;
+
+      default:
+        if (element?.dataset.settingsSection) {
+          openModal(
+            element.querySelector("strong")?.textContent || "الإعدادات",
+            "تفاصيل هذا القسم ستُفتح ضمن صفحة الإعدادات."
+          );
+        } else {
+          toast("لم يتم العثور على الإجراء المطلوب", "error");
+        }
+    }
+  }
+
+  /* -------------------------
+     GLOBAL CLICK EVENTS
+  ------------------------- */
+
+  function bindClickEvents() {
+    document.addEventListener("click", event => {
+      const actionElement =
+        event.target.closest("[data-action]");
+
+      if (actionElement) {
+        event.preventDefault();
+
+        handleAction(
+          actionElement.dataset.action,
+          actionElement
+        );
+
+        return;
+      }
+
+      const pageElement =
+        event.target.closest("[data-page]");
+
+      if (pageElement) {
+        event.preventDefault();
+        navigate(pageElement.dataset.page);
+        return;
+      }
+
+      const settingsElement =
+        event.target.closest("[data-settings-section]");
+
+      if (settingsElement) {
+        handleAction("", settingsElement);
+      }
+    });
+
+    const loginTab = $("#login-tab");
+    const registerTab = $("#register-tab");
+
+    loginTab?.addEventListener("click", () => {
+      switchAuthTab("login");
+    });
+
+    registerTab?.addEventListener("click", () => {
+      switchAuthTab("register");
+    });
+
+    elements.previewButton?.addEventListener(
+      "click",
+      enterPreviewMode
+    );
+  }
+
+  /* -------------------------
+     KEYBOARD SUPPORT
+  ------------------------- */
+
+  function bindKeyboardEvents() {
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        if (state.modalOpen) {
+          closeModal();
+        } else if (state.sidebarOpen) {
+          closeSidebar();
+        }
+      }
+    });
+  }
+
+  /* -------------------------
+     AUTH EVENTS
+  ------------------------- */
+
+  function bindAuthEvents() {
+    const googleButton = $("#google-login");
+
+    googleButton?.addEventListener("click", () => {
+      document.dispatchEvent(
+        new CustomEvent("heno:auth-request", {
+          detail: { provider: "google" }
+        })
       );
-    } else {
-      alert(
-        "لتثبيت HENO CHAT:\n\n" +
-        "1- افتح قائمة المتصفح ⋮.\n" +
-        "2- اختر تثبيت التطبيق أو إضافة إلى الشاشة الرئيسية.\n" +
-        "3- أكّد التثبيت."
+    });
+
+    const loginForm = $("#login-form");
+
+    loginForm?.addEventListener("submit", event => {
+      event.preventDefault();
+
+      document.dispatchEvent(
+        new CustomEvent("heno:auth-request", {
+          detail: {
+            provider: "email",
+            mode: "login",
+            form: loginForm
+          }
+        })
+      );
+    });
+
+    const registerForm = $("#register-form");
+
+    registerForm?.addEventListener("submit", event => {
+      event.preventDefault();
+
+      document.dispatchEvent(
+        new CustomEvent("heno:auth-request", {
+          detail: {
+            provider: "email",
+            mode: "register",
+            form: registerForm
+          }
+        })
+      );
+    });
+  }
+
+  /* -------------------------
+     RESPONSIVE EVENTS
+  ------------------------- */
+
+  function bindResponsiveEvents() {
+    const menuButton = $("[data-action='toggle-sidebar']");
+
+    menuButton?.addEventListener("click", toggleSidebar);
+
+    document.addEventListener("click", event => {
+      if (!state.sidebarOpen) return;
+
+      const insideSidebar =
+        event.target.closest("#app-sidebar");
+
+      const menu =
+        event.target.closest("[data-action='toggle-sidebar']");
+
+      if (!insideSidebar && !menu) {
+        closeSidebar();
+      }
+    });
+  }
+
+  /* -------------------------
+     PUBLIC API
+  ------------------------- */
+
+  function getState() {
+    return Object.freeze({
+      version: CONFIG.version,
+      cacheVersion: CONFIG.cacheVersion,
+      previewMode: state.previewMode,
+      currentPage: state.currentPage,
+      sidebarOpen: state.sidebarOpen,
+      modalOpen: state.modalOpen,
+      activeTab: state.activeTab
+    });
+  }
+
+  function init() {
+    if (state.initialized) return;
+
+    cacheElements();
+
+    bindClickEvents();
+    bindKeyboardEvents();
+    bindAuthEvents();
+    bindResponsiveEvents();
+
+    switchAuthTab("login");
+
+    state.initialized = true;
+
+    startSplash();
+
+    document.dispatchEvent(
+      new CustomEvent("heno:initialized", {
+        detail: {
+          version: CONFIG.version
+        }
+      })
+    );
+  }
+
+  return {
+    init,
+    navigate,
+    toast,
+    openModal,
+    closeModal,
+    enterPreviewMode,
+    exitPreviewMode,
+    switchAuthTab,
+    getState,
+    getIcon
+  };
+
+})();
+
+/* -------------------------
+   START APPLICATION
+------------------------- */
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", HENO.init);
+} else {
+  HENO.init();
+}
+
+/* Global application reference */
+window.HENO = HENO;
+
+/* =========================================================
+   HENO CHAT — SERVICE WORKER UPDATE MANAGER
+   App Version: 1.0.2
+   Service Worker: v4
+========================================================= */
+
+(() => {
+  "use strict";
+
+  const HENO_VERSION = "1.0.2";
+  const SERVICE_WORKER_URL = "./service-worker.js?v=4";
+
+  let reloading = false;
+
+  if (!("serviceWorker" in navigator)) {
+    console.info("[HENO] Service Worker is not supported.");
+    return;
+  }
+
+  /* -------------------------
+     UPDATE NOTIFICATION
+  ------------------------- */
+
+  function announceUpdate(version) {
+    window.dispatchEvent(
+      new CustomEvent("heno:update-activated", {
+        detail: {
+          version: version || HENO_VERSION
+        }
+      })
+    );
+
+    console.info(
+      "[HENO] Update activated:",
+      version || HENO_VERSION
+    );
+  }
+
+  /* -------------------------
+     SERVICE WORKER MESSAGES
+  ------------------------- */
+
+  navigator.serviceWorker.addEventListener(
+    "message",
+    event => {
+      const data = event.data || {};
+
+      if (data.type === "HENO_UPDATE_ACTIVATED") {
+        announceUpdate(data.version);
+      }
+
+      if (data.type === "HENO_VERSION") {
+        console.info(
+          "[HENO] Active worker:",
+          data.version,
+          data.cache
+        );
+      }
+    }
+  );
+
+  /* -------------------------
+     CONTROLLER CHANGE
+  ------------------------- */
+
+  navigator.serviceWorker.addEventListener(
+    "controllerchange",
+    () => {
+      if (reloading) return;
+
+      reloading = true;
+
+      console.info(
+        "[HENO] New application controller detected."
+      );
+
+      window.location.reload();
+    }
+  );
+
+  /* -------------------------
+     REGISTER SERVICE WORKER
+  ------------------------- */
+
+  async function registerHENOServiceWorker() {
+    if (location.protocol !== "https:" &&
+        location.hostname !== "localhost") {
+      console.info(
+        "[HENO] Service Worker requires HTTPS or localhost."
+      );
+      return;
+    }
+
+    try {
+      const registration =
+        await navigator.serviceWorker.register(
+          SERVICE_WORKER_URL,
+          {
+            scope: "./",
+            updateViaCache: "none"
+          }
+        );
+
+      console.info(
+        "[HENO] Service Worker registered:",
+        registration.scope
+      );
+
+      /* فحص الإصدار الجديد */
+      await registration.update();
+
+      /* متابعة وجود نسخة جديدة */
+      registration.addEventListener(
+        "updatefound",
+        () => {
+          const installingWorker =
+            registration.installing;
+
+          if (!installingWorker) return;
+
+          installingWorker.addEventListener(
+            "statechange",
+            () => {
+              if (
+                installingWorker.state === "installed" &&
+                navigator.serviceWorker.controller
+              ) {
+                console.info(
+                  "[HENO] A new update is ready."
+                );
+
+                window.dispatchEvent(
+                  new CustomEvent("heno:update-available", {
+                    detail: {
+                      version: HENO_VERSION
+                    }
+                  })
+                );
+              }
+            }
+          );
+        }
+      );
+
+      /* طلب نسخة العامل النشطة */
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: "HENO_GET_VERSION"
+        });
+      }
+
+    } catch (error) {
+      console.error(
+        "[HENO] Service Worker registration failed:",
+        error
       );
     }
+  }
+
+  /* -------------------------
+     START UPDATE MANAGER
+  ------------------------- */
+
+  if (document.readyState === "complete") {
+    registerHENOServiceWorker();
+  } else {
+    window.addEventListener(
+      "load",
+      registerHENOServiceWorker,
+      { once: true }
+    );
+  }
+
+  /* -------------------------
+     PUBLIC VERSION INFO
+  ------------------------- */
+
+  window.HENO_UPDATE = Object.freeze({
+    version: HENO_VERSION,
+    serviceWorker: SERVICE_WORKER_URL
   });
 
-  // إخفاء دعوة التثبيت بعد نجاح التثبيت
-  window.addEventListener("appinstalled", () => {
-    banner.style.display = "none";
-    deferredPrompt = null;
-  });
-
-  // إغلاق الدعوة
-  closeButton.addEventListener("click", () => {
-    banner.style.display = "none";
-  });
-
-  banner.style.display = "flex";
 })();
