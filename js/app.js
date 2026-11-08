@@ -2,7 +2,8 @@
 /* =========================================================
    HENO CHAT — MAIN APPLICATION ENGINE
    File: js/app.js
-   Version: 1.0.0
+   Version: 1.0.1
+   Cache: v3
    Mobile First | Arabic RTL | Modular Architecture
 ========================================================= */
 
@@ -15,7 +16,8 @@ const HENO = (() => {
 
   const CONFIG = {
     name: "HENO CHAT",
-    version: "1.0.0",
+    version: "1.0.1",
+    cacheVersion: "v3",
     splashDuration: 5000,
     defaultPage: "chats",
     direction: "rtl"
@@ -75,6 +77,7 @@ const HENO = (() => {
 
   function showElement(element) {
     if (!element) return;
+
     element.hidden = false;
     element.style.display = "";
     element.classList.remove("is-hidden");
@@ -82,12 +85,15 @@ const HENO = (() => {
 
   function hideElement(element) {
     if (!element) return;
+
     element.hidden = true;
     element.classList.add("is-hidden");
   }
 
   function setText(element, value) {
-    if (element) element.textContent = value;
+    if (element) {
+      element.textContent = value;
+    }
   }
 
   /* -------------------------
@@ -361,7 +367,10 @@ const HENO = (() => {
     const existingNavigation =
       $("#heno-navigation", elements.app);
 
-    if (existingNavigation) return;
+    if (existingNavigation) {
+      createPreviewIndicator();
+      return;
+    }
 
     const navigation = document.createElement("nav");
 
@@ -576,6 +585,7 @@ const HENO = (() => {
 
     const list = document.createElement("div");
     list.className = "heno-chat-list";
+
     list.appendChild(
       createEmptyState(
         "المحادثات",
@@ -1118,6 +1128,8 @@ const HENO = (() => {
 
   function getState() {
     return Object.freeze({
+      version: CONFIG.version,
+      cacheVersion: CONFIG.cacheVersion,
       previewMode: state.previewMode,
       currentPage: state.currentPage,
       sidebarOpen: state.sidebarOpen,
@@ -1143,7 +1155,11 @@ const HENO = (() => {
     startSplash();
 
     document.dispatchEvent(
-      new CustomEvent("heno:initialized")
+      new CustomEvent("heno:initialized", {
+        detail: {
+          version: CONFIG.version
+        }
+      })
     );
   }
 
@@ -1174,3 +1190,44 @@ if (document.readyState === "loading") {
 
 /* Global application reference */
 window.HENO = HENO;
+
+/* -------------------------
+   SERVICE WORKER — UPDATE v3
+   Register and check for fresh app files.
+------------------------- */
+
+async function registerHENOServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  if (location.protocol !== "https:") return;
+
+  try {
+    const registration =
+      await navigator.serviceWorker.register(
+        "./service-worker.js?v=3",
+        {
+          scope: "./",
+          updateViaCache: "none"
+        }
+      );
+
+    await registration.update();
+
+    console.log("[HENO] Service Worker update v3 checked.");
+
+  } catch (error) {
+    console.error(
+      "[HENO] Service Worker registration failed:",
+      error
+    );
+  }
+}
+
+if (document.readyState === "complete") {
+  registerHENOServiceWorker();
+} else {
+  window.addEventListener(
+    "load",
+    registerHENOServiceWorker,
+    { once: true }
+  );
+}
