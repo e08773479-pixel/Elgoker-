@@ -2,353 +2,1327 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#100b27">
-  <meta name="description" content="حمّل وثبّت HENO CHAT على هاتفك واستمتع بتجربة تواصل بلا حدود.">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#100d20">
+    <meta name="description" content="HENO CHAT - منصة تواصل ومراسلة متكاملة">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-  <title>تحميل HENO CHAT</title>
+    <title>HENO CHAT — تواصل بلا حدود</title>
 
-  <link rel="manifest" href="./manifest.json">
-  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" href="./assets/logo/heno-icon.png">
+    <link rel="apple-touch-icon" href="./assets/logo/heno-icon.png">
 
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-    body {
-      min-height: 100vh;
-      font-family: Tahoma, Arial, sans-serif;
-      background:
-        radial-gradient(circle at 20% 20%, #422078 0, transparent 38%),
-        radial-gradient(circle at 85% 75%, #22216b 0, transparent 35%),
-        #090817;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 25px 16px;
-      overflow-x: hidden;
-    }
-
-    .page {
-      width: 100%;
-      max-width: 470px;
-      text-align: center;
-      position: relative;
-    }
-
-    .glow {
-      position: absolute;
-      width: 240px;
-      height: 240px;
-      background: #8654ff;
-      filter: blur(120px);
-      opacity: .22;
-      top: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      pointer-events: none;
-    }
-
-    .card {
-      position: relative;
-      padding: 34px 23px;
-      border: 1px solid rgba(177, 139, 255, .25);
-      border-radius: 30px;
-      background: rgba(24, 19, 48, .77);
-      backdrop-filter: blur(25px);
-      box-shadow: 0 25px 80px rgba(0,0,0,.4);
-    }
-
-    .logo {
-      width: 112px;
-      height: 112px;
-      object-fit: contain;
-      border-radius: 28px;
-      filter: drop-shadow(0 0 25px rgba(145, 95, 255, .5));
-      margin-bottom: 19px;
-    }
-
-    h1 {
-      font-size: 31px;
-      font-weight: 900;
-      letter-spacing: 1px;
-    }
-
-    .tagline {
-      color: #c8b8f3;
-      font-size: 15px;
-      margin-top: 9px;
-    }
-
-    .description {
-      color: #bcb5d1;
-      font-size: 13px;
-      line-height: 2;
-      margin: 22px 0;
-    }
-
-    .install-btn {
-      width: 100%;
-      min-height: 58px;
-      border: none;
-      border-radius: 17px;
-      color: white;
-      font-size: 17px;
-      font-weight: bold;
-      font-family: inherit;
-      background: linear-gradient(110deg, #a477ff, #6941e8);
-      box-shadow: 0 10px 30px rgba(123, 76, 255, .35);
-      cursor: pointer;
-      transition: .2s;
-    }
-
-    .install-btn:active {
-      transform: scale(.97);
-    }
-
-    .install-btn:disabled {
-      opacity: .7;
-      cursor: default;
-    }
-
-    .status {
-      min-height: 48px;
-      margin-top: 15px;
-      color: #d4c9f0;
-      font-size: 12px;
-      line-height: 1.9;
-    }
-
-    .features {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 9px;
-      margin-top: 25px;
-    }
-
-    .feature {
-      padding: 14px 5px;
-      border-radius: 15px;
-      background: rgba(255,255,255,.045);
-      border: 1px solid rgba(255,255,255,.07);
-    }
-
-    .feature .symbol {
-      display: block;
-      color: #b99aff;
-      font-size: 22px;
-      margin-bottom: 9px;
-    }
-
-    .feature span:last-child {
-      font-size: 11px;
-      color: #d4cde5;
-    }
-
-    .instructions {
-      display: none;
-      text-align: right;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(180,150,255,.2);
-      padding: 17px;
-      border-radius: 17px;
-      margin-top: 16px;
-      font-size: 13px;
-      line-height: 2.2;
-      color: #ded5f5;
-    }
-
-    .instructions.show {
-      display: block;
-    }
-
-    .instructions strong {
-      color: #c5a7ff;
-    }
-
-    .back {
-      display: inline-block;
-      margin-top: 25px;
-      color: #c5adff;
-      font-size: 13px;
-      text-decoration: none;
-    }
-
-    .footer {
-      margin-top: 20px;
-      color: #817995;
-      font-size: 11px;
-    }
-  </style>
+    <link rel="stylesheet" href="./styles.css">
 </head>
 
-<body>
+<body class="heno-app">
 
-  <main class="page">
-    <div class="glow"></div>
+    <!-- =================================================
+         01. SPLASH SCREEN
+    ================================================== -->
 
-    <section class="card">
+    <section id="splash" class="splash-screen" aria-label="HENO CHAT">
 
-      <img class="logo"
-           src="./assets/icon.svg"
-           alt="HENO CHAT">
-
-      <h1>HENO CHAT</h1>
-      <p class="tagline">تواصل بلا حدود</p>
-
-      <p class="description">
-        عالمك الخاص للتواصل والمحادثات.
-        ثبّت HENO CHAT على هاتفك واستمتع
-        بالوصول السريع من الشاشة الرئيسية.
-      </p>
-
-      <button class="install-btn" id="installButton">
-        ↓ &nbsp; ثبّت HENO CHAT الآن
-      </button>
-
-      <div class="status" id="installStatus" aria-live="polite">
-        تطبيقك المفضل أصبح أقرب إليك.
-      </div>
-
-      <div class="instructions" id="instructions"></div>
-
-      <div class="features">
-        <div class="feature">
-          <span class="symbol">✦</span>
-          <span>تصميم فاخر</span>
+        <div class="splash-background">
+            <div class="splash-orbit splash-orbit-one"></div>
+            <div class="splash-orbit splash-orbit-two"></div>
+            <div class="splash-glow"></div>
         </div>
 
-        <div class="feature">
-          <span class="symbol">◈</span>
-          <span>وصول سريع</span>
+        <div class="splash-content">
+
+            <div class="splash-logo">
+                <svg viewBox="0 0 100 100" role="img" aria-label="HENO">
+                    <defs>
+                        <linearGradient id="henoLogoGradient" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#a993ff"/>
+                            <stop offset="55%" stop-color="#7658ef"/>
+                            <stop offset="100%" stop-color="#35cfc5"/>
+                        </linearGradient>
+                    </defs>
+
+                    <rect x="5" y="5" width="90" height="90" rx="29"
+                          fill="url(#henoLogoGradient)"/>
+
+                    <path d="M28 34V66M28 50H53M53 34V66"
+                          stroke="#fff" stroke-width="8"
+                          stroke-linecap="round" stroke-linejoin="round"/>
+
+                    <path d="M66 39C76 39 82 45 82 55V66"
+                          stroke="#fff" stroke-width="8"
+                          stroke-linecap="round" fill="none"/>
+                </svg>
+            </div>
+
+            <h1 class="splash-title">HENO</h1>
+            <p class="splash-subtitle">تواصل بلا حدود</p>
+
+            <div class="splash-loader">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+
         </div>
 
-        <div class="feature">
-          <span class="symbol">⌂</span>
-          <span>على شاشتك</span>
+        <div class="splash-footer">
+            HENO CHAT
         </div>
-      </div>
-
-      <a class="back" href="./index.html">
-        العودة إلى HENO CHAT ←
-      </a>
 
     </section>
 
-    <p class="footer">
-      HENO CHAT © 2026 — تواصل بلا حدود
-    </p>
-  </main>
 
-  <script>
-    (() => {
-      const button = document.getElementById("installButton");
-      const status = document.getElementById("installStatus");
-      const instructions = document.getElementById("instructions");
+    <!-- =================================================
+         02. AUTHENTICATION SCREEN
+    ================================================== -->
 
-      let installPrompt = null;
+    <main id="auth-screen" class="auth-screen" hidden>
 
-      const isInstalled = () =>
-        window.matchMedia("(display-mode: standalone)").matches ||
-        window.navigator.standalone === true;
+        <div class="auth-background">
+            <div class="auth-light auth-light-one"></div>
+            <div class="auth-light auth-light-two"></div>
+        </div>
 
-      function showInstructions(title, content) {
-        instructions.innerHTML =
-          "<strong>" + title + "</strong><br>" + content;
+        <div class="auth-layout">
 
-        instructions.classList.add("show");
-      }
+            <!-- BRAND SIDE -->
 
-      if (isInstalled()) {
-        button.textContent = "✓ التطبيق مثبت بالفعل";
-        button.disabled = true;
-        status.textContent = "يمكنك فتح HENO CHAT من شاشة هاتفك.";
-      }
+            <aside class="auth-brand">
 
-      window.addEventListener("beforeinstallprompt", (event) => {
-        event.preventDefault();
-        installPrompt = event;
+                <div class="brand-logo">
+                    <svg viewBox="0 0 100 100" aria-hidden="true">
+                        <rect x="5" y="5" width="90" height="90" rx="28"
+                              fill="url(#henoBrandGradient)"/>
+                        <defs>
+                            <linearGradient id="henoBrandGradient" x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0%" stop-color="#a993ff"/>
+                                <stop offset="100%" stop-color="#35cfc5"/>
+                            </linearGradient>
+                        </defs>
+                        <path d="M28 34V66M28 50H53M53 34V66"
+                              stroke="#fff" stroke-width="8"
+                              stroke-linecap="round" fill="none"/>
+                        <path d="M66 39C76 39 82 45 82 55V66"
+                              stroke="#fff" stroke-width="8"
+                              stroke-linecap="round" fill="none"/>
+                    </svg>
+                </div>
 
-        button.disabled = false;
-        button.textContent = "↓ تثبيت HENO CHAT الآن";
-        status.textContent = "جاهز للتثبيت على جهازك.";
-      });
+                <h1>HENO CHAT</h1>
 
-      button.addEventListener("click", async () => {
-        if (isInstalled()) return;
+                <p class="brand-description">
+                    عالمك الخاص للتواصل والمحادثات.
+                    اجمع أصدقاءك ومجتمعاتك في مكان واحد.
+                </p>
 
-        if (installPrompt) {
-          installPrompt.prompt();
+                <div class="brand-features">
+                    <div class="brand-feature">
+                        <span class="feature-icon">01</span>
+                        <span>محادثات واتصال</span>
+                    </div>
 
-          const result = await installPrompt.userChoice;
+                    <div class="brand-feature">
+                        <span class="feature-icon">02</span>
+                        <span>حالات ومجتمعات</span>
+                    </div>
 
-          if (result.outcome === "accepted") {
-            status.textContent = "تم قبول طلب التثبيت. أكمل تأكيد المتصفح.";
-          } else {
-            status.textContent = "لم يتم التثبيت. يمكنك المحاولة مرة أخرى.";
-          }
+                    <div class="brand-feature">
+                        <span class="feature-icon">03</span>
+                        <span>خصوصية وتحكم</span>
+                    </div>
+                </div>
 
-          installPrompt = null;
-          return;
-        }
+            </aside>
 
-        const ua = navigator.userAgent;
-        const isIOS = /iphone|ipad|ipod/i.test(ua);
-        const isAndroid = /android/i.test(ua);
 
-        if (isIOS) {
-          showInstructions(
-            "تثبيت HENO CHAT على iPhone",
-            "1. افتح الصفحة في Safari.<br>" +
-            "2. اضغط زر المشاركة.<br>" +
-            "3. اختر إضافة إلى الشاشة الرئيسية.<br>" +
-            "4. اضغط إضافة."
-          );
-        } else if (isAndroid) {
-          showInstructions(
-            "تثبيت HENO CHAT على Android",
-            "1. افتح الصفحة في Chrome.<br>" +
-            "2. افتح قائمة المتصفح ⋮.<br>" +
-            "3. اختر تثبيت التطبيق أو إضافة إلى الشاشة الرئيسية.<br>" +
-            "4. أكّد الإضافة."
-          );
-        } else {
-          showInstructions(
-            "تثبيت التطبيق",
-            "افتح قائمة المتصفح وابحث عن خيار تثبيت التطبيق أو إضافته إلى الشاشة الرئيسية."
-          );
-        }
-      });
+            <!-- AUTH CARD -->
 
-      window.addEventListener("appinstalled", () => {
-        button.textContent = "✓ تم تثبيت HENO CHAT";
-        button.disabled = true;
-        status.textContent = "أصبح التطبيق جاهزًا على هاتفك.";
-        instructions.classList.remove("show");
-      });
+            <section class="auth-card">
 
-      if ("serviceWorker" in navigator && location.protocol === "https:") {
-        window.addEventListener("load", () => {
-          navigator.serviceWorker.register("./service-worker.js")
-            .catch(error => {
-              console.error("Service Worker:", error);
-            });
-        });
-      }
+                <div class="auth-card-header">
 
-      if (location.protocol !== "https:" &&
-          location.hostname !== "localhost") {
-        status.textContent =
-          "يجب نشر الموقع على HTTPS حتى تتوفر إمكانية تثبيت التطبيق.";
-        button.disabled = true;
-      }
-    })();
-  </script>
+                    <div class="auth-mobile-brand">
+                        <div class="auth-mini-logo">H</div>
+                        <span>HENO CHAT</span>
+                    </div>
+
+                    <p class="auth-eyebrow">مرحبًا بك في HENO</p>
+
+                    <h2 id="auth-heading">ابدأ رحلتك معنا</h2>
+
+                    <p id="auth-description">
+                        سجّل الدخول إلى حسابك أو أنشئ حسابًا جديدًا.
+                    </p>
+
+                </div>
+
+
+                <!-- AUTH TABS -->
+
+                <div class="auth-tabs" role="tablist">
+
+                    <button
+                        type="button"
+                        id="login-tab"
+                        class="auth-tab active"
+                        role="tab"
+                        aria-selected="true"
+                        aria-controls="login-panel">
+
+                        تسجيل الدخول
+
+                    </button>
+
+                    <button
+                        type="button"
+                        id="register-tab"
+                        class="auth-tab"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="register-panel">
+
+                        إنشاء حساب
+
+                    </button>
+
+                </div>
+
+
+                <!-- LOGIN PANEL -->
+
+                <section id="login-panel" class="auth-panel">
+
+                    <form id="login-form" autocomplete="on">
+
+                        <div class="form-group">
+
+                            <label for="login-identifier">
+                                رقم الهاتف أو البريد الإلكتروني
+                            </label>
+
+                            <div class="input-wrapper">
+
+                                <span class="input-icon">✉</span>
+
+                                <input
+                                    type="text"
+                                    id="login-identifier"
+                                    name="identifier"
+                                    placeholder="أدخل رقم الهاتف أو البريد"
+                                    autocomplete="username"
+                                    required>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="login-password">
+                                كلمة المرور
+                            </label>
+
+                            <div class="input-wrapper">
+
+                                <span class="input-icon">◇</span>
+
+                                <input
+                                    type="password"
+                                    id="login-password"
+                                    name="password"
+                                    placeholder="أدخل كلمة المرور"
+                                    autocomplete="current-password"
+                                    required>
+
+                                <button
+                                    type="button"
+                                    class="password-toggle"
+                                    data-action="toggle-password"
+                                    data-target="login-password"
+                                    aria-label="إظهار كلمة المرور">
+
+                                    <svg viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="1.8">
+                                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-options">
+
+                            <label class="remember-option">
+                                <input type="checkbox" name="remember">
+                                <span>تذكرني</span>
+                            </label>
+
+                            <button
+                                type="button"
+                                class="text-action"
+                                data-action="forgot-password">
+
+                                نسيت كلمة المرور؟
+
+                            </button>
+
+                        </div>
+
+
+                        <button type="submit" class="primary-button">
+
+                            <span>تسجيل الدخول</span>
+
+                            <svg viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14M13 6l6 6-6 6"/>
+                            </svg>
+
+                        </button>
+
+                    </form>
+
+
+                    <div class="auth-divider">
+                        <span>أو الدخول باستخدام</span>
+                    </div>
+
+
+                    <div class="social-login-grid">
+
+                        <button
+                            type="button"
+                            id="google-login"
+                            class="social-login-button"
+                            data-provider="google">
+
+                            <svg viewBox="0 0 48 48" aria-hidden="true">
+                                <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.5 30.3 0 24 0 14.6 0 6.5 5.4 2.5 13.2l7.8 6.1C12.2 13.3 17.6 9.5 24 9.5z"/>
+                                <path fill="#4285F4" d="M47.5 24.5c0-1.6-.2-3.2-.5-4.7H24v9h13.2c-.6 3-2.3 5.6-4.8 7.3l7.5 5.8c4.8-4.4 7.6-10.6 7.6-17.4z"/>
+                                <path fill="#FBBC05" d="M10.3 28.7c-.7-1.5-1-3.1-1-4.7s.4-3.2 1-4.7l-7.8-6.1C.9 16.7 0 20.2 0 24s.9 7.3 2.5 10.8l7.8-6.1z"/>
+                                <path fill="#34A853" d="M24 48c6.3 0 11.6-2.1 15.5-5.8L32 36.4c-2.1 1.4-4.8 2.3-8 2.3-6.4 0-11.8-3.8-13.7-9.2l-7.8 6.1C6.5 43.1 14.6 48 24 48z"/>
+                            </svg>
+
+                            <span>Google</span>
+
+                        </button>
+
+
+                        <button
+                            type="button"
+                            id="facebook-login"
+                            class="social-login-button"
+                            data-provider="facebook">
+
+                            <svg viewBox="0 0 48 48" aria-hidden="true">
+                                <path fill="#1877F2" d="M24 2C11.8 2 2 11.9 2 24.2c0 11 8 20.1 18.4 21.8V30.5h-5.5v-6.3h5.5v-4.8c0-5.5 3.3-8.6 8.3-8.6 2.4 0 4.9.4 4.9.4v5.4h-2.8c-2.7 0-3.6 1.7-3.6 3.4v4.1h6.1l-1 6.3h-5.1V46C37.6 44.3 46 35.2 46 24.2 46 11.9 36.2 2 24 2z"/>
+                            </svg>
+
+                            <span>Facebook</span>
+
+                        </button>
+
+                    </div>
+
+
+                    <div class="auth-preview-area">
+
+                        <div class="auth-divider">
+                            <span>أو استكشف التطبيق</span>
+                        </div>
+
+                        <button
+                            type="button"
+                            id="preview-button"
+                            class="preview-button"
+                            data-action="enter-preview">
+
+                            <svg viewBox="0 0 24 24" fill="none"
+                                 stroke="currentColor" stroke-width="1.8">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+
+                            <span>معاينة التطبيق</span>
+
+                        </button>
+
+                        <p class="preview-description">
+                            استعرض الواجهات التي تم تنفيذها قبل تسجيل الدخول.
+                        </p>
+
+                    </div>
+
+                </section>
+
+
+                <!-- REGISTER PANEL -->
+
+                <section id="register-panel" class="auth-panel" hidden>
+
+                    <div class="register-intro">
+                        <h3>إنشاء حساب HENO جديد</h3>
+                        <p>أكمل خطوات التسجيل الست لإعداد حسابك.</p>
+                    </div>
+
+
+                    <!-- REGISTRATION PROGRESS -->
+
+                    <div class="registration-progress">
+
+                        <div class="progress-information">
+                            <span id="registration-step-label">
+                                الخطوة 1 من 6
+                            </span>
+
+                            <span id="registration-step-name">
+                                طريقة التسجيل
+                            </span>
+                        </div>
+
+                        <div class="progress-track">
+                            <div
+                                id="registration-progress-bar"
+                                class="progress-fill"
+                                style="width:16.6667%">
+                            </div>
+                        </div>
+
+                        <div class="step-indicators">
+
+                            <span class="step-indicator active" data-step-indicator="1">1</span>
+                            <span class="step-indicator" data-step-indicator="2">2</span>
+                            <span class="step-indicator" data-step-indicator="3">3</span>
+                            <span class="step-indicator" data-step-indicator="4">4</span>
+                            <span class="step-indicator" data-step-indicator="5">5</span>
+                            <span class="step-indicator" data-step-indicator="6">6</span>
+
+                        </div>
+
+                    </div>
+
+
+                    <form id="register-form" enctype="multipart/form-data" novalidate>
+
+                        <!-- STEP 1 -->
+
+                        <div class="registration-step active" data-registration-step="1">
+
+                            <h3>اختر طريقة إنشاء حسابك</h3>
+
+                            <p class="step-description">
+                                اختر الوسيلة التي تريد استخدامها لتسجيل حسابك.
+                            </p>
+
+                            <div class="registration-methods">
+
+                                <button
+                                    type="button"
+                                    class="registration-method"
+                                    data-registration-provider="phone">
+
+                                    <span class="method-icon">☎</span>
+
+                                    <span>
+                                        <strong>رقم الهاتف</strong>
+                                        <small>التحقق باستخدام رسالة SMS</small>
+                                    </span>
+
+                                    <span class="method-arrow">‹</span>
+
+                                </button>
+
+
+                                <button
+                                    type="button"
+                                    class="registration-method"
+                                    data-registration-provider="email">
+
+                                    <span class="method-icon">✉</span>
+
+                                    <span>
+                                        <strong>البريد الإلكتروني</strong>
+                                        <small>التسجيل باستخدام البريد وكلمة المرور</small>
+                                    </span>
+
+                                    <span class="method-arrow">‹</span>
+
+                                </button>
+
+
+                                <button
+                                    type="button"
+                                    class="registration-method"
+                                    data-registration-provider="google">
+
+                                    <span class="method-icon method-google">G</span>
+
+                                    <span>
+                                        <strong>حساب Google</strong>
+                                        <small>المتابعة باستخدام Google</small>
+                                    </span>
+
+                                    <span class="method-arrow">‹</span>
+
+                                </button>
+
+
+                                <button
+                                    type="button"
+                                    class="registration-method"
+                                    data-registration-provider="facebook">
+
+                                    <span class="method-icon method-facebook">f</span>
+
+                                    <span>
+                                        <strong>حساب Facebook</strong>
+                                        <small>المتابعة باستخدام Facebook</small>
+                                    </span>
+
+                                    <span class="method-arrow">‹</span>
+
+                                </button>
+
+                            </div>
+
+
+                            <div id="registration-credentials" hidden>
+
+                                <div id="phone-registration-fields" hidden>
+
+                                    <div class="form-group">
+                                        <label for="register-country">الدولة</label>
+
+                                        <select id="register-country" name="countryCode">
+                                            <option value="+20">مصر (+20)</option>
+                                            <option value="+966">السعودية (+966)</option>
+                                            <option value="+971">الإمارات (+971)</option>
+                                            <option value="+965">الكويت (+965)</option>
+                                            <option value="+974">قطر (+974)</option>
+                                            <option value="+962">الأردن (+962)</option>
+                                            <option value="+1">الولايات المتحدة (+1)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="register-phone">رقم الهاتف</label>
+
+                                        <input
+                                            type="tel"
+                                            id="register-phone"
+                                            name="phone"
+                                            placeholder="أدخل رقم هاتفك"
+                                            autocomplete="tel">
+                                    </div>
+
+                                </div>
+
+
+                                <div id="email-registration-fields" hidden>
+
+                                    <div class="form-group">
+                                        <label for="register-email">البريد الإلكتروني</label>
+
+                                        <input
+                                            type="email"
+                                            id="register-email"
+                                            name="email"
+                                            placeholder="name@example.com"
+                                            autocomplete="email">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="register-password">كلمة المرور</label>
+
+                                        <input
+                                            type="password"
+                                            id="register-password"
+                                            name="password"
+                                            minlength="8"
+                                            autocomplete="new-password"
+                                            placeholder="8 أحرف على الأقل">
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="register-password-confirm">تأكيد كلمة المرور</label>
+
+                                        <input
+                                            type="password"
+                                            id="register-password-confirm"
+                                            name="confirmPassword"
+                                            autocomplete="new-password"
+                                            placeholder="أعد كتابة كلمة المرور">
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- STEP 2 -->
+
+                        <div class="registration-step" data-registration-step="2" hidden>
+
+                            <h3>تأكيد وسيلة الدخول</h3>
+
+                            <p class="step-description">
+                                أكد ملكية وسيلة التواصل التي اخترتها.
+                            </p>
+
+                            <div id="phone-verification-fields">
+
+                                <div class="form-group">
+                                    <label for="verification-code">رمز التحقق</label>
+
+                                    <input
+                                        type="text"
+                                        id="verification-code"
+                                        name="verificationCode"
+                                        inputmode="numeric"
+                                        maxlength="6"
+                                        autocomplete="one-time-code"
+                                        placeholder="أدخل رمز التحقق">
+                                </div>
+
+                                <button
+                                    type="button"
+                                    class="text-action"
+                                    id="resend-verification-code">
+
+                                    إعادة إرسال الرمز
+
+                                </button>
+
+                            </div>
+
+                            <div id="email-verification-fields" hidden>
+
+                                <p>
+                                    سيتم تأكيد البريد الإلكتروني من خلال رسالة التحقق المرسلة إليه.
+                                </p>
+
+                                <label class="checkbox-line">
+                                    <input type="checkbox" id="email-verified">
+                                    <span>تم تأكيد البريد الإلكتروني</span>
+                                </label>
+
+                            </div>
+
+                            <div id="social-verification-fields" hidden>
+                                <p>
+                                    سيتم اعتماد بيانات الدخول بعد نجاح التحقق من مزود الحساب.
+                                </p>
+                            </div>
+
+                        </div>
+
+
+                        <!-- STEP 3 -->
+
+                        <div class="registration-step" data-registration-step="3" hidden>
+
+                            <h3>بياناتك الشخصية</h3>
+
+                            <p class="step-description">
+                                اكتب الاسم الذي سيظهر للآخرين داخل HENO.
+                            </p>
+
+                            <div class="form-group">
+                                <label for="profile-first-name">الاسم الأول</label>
+
+                                <input
+                                    type="text"
+                                    id="profile-first-name"
+                                    name="firstName"
+                                    autocomplete="given-name"
+                                    placeholder="الاسم الأول">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="profile-last-name">اسم العائلة</label>
+
+                                <input
+                                    type="text"
+                                    id="profile-last-name"
+                                    name="lastName"
+                                    autocomplete="family-name"
+                                    placeholder="اسم العائلة">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="profile-bio">نبذة شخصية</label>
+
+                                <textarea
+                                    id="profile-bio"
+                                    name="bio"
+                                    rows="3"
+                                    maxlength="160"
+                                    placeholder="اكتب نبذة قصيرة عن نفسك"></textarea>
+                            </div>
+
+                        </div>
+
+
+                        <!-- STEP 4 -->
+
+                        <div class="registration-step" data-registration-step="4" hidden>
+
+                            <h3>صورتك الشخصية</h3>
+
+                            <p class="step-description">
+                                اختر الصورة التي تريد أن تظهر بها في حسابك.
+                            </p>
+
+                            <div class="profile-image-editor">
+
+                                <div class="profile-image-preview" id="profile-image-preview">
+
+                                    <svg viewBox="0 0 24 24" fill="none"
+                                         stroke="currentColor" stroke-width="1.5">
+                                        <circle cx="12" cy="8" r="4"/>
+                                        <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
+                                    </svg>
+
+                                </div>
+
+                                <label for="profile-photo" class="upload-photo-button">
+                                    اختيار صورة
+                                </label>
+
+                                <input
+                                    type="file"
+                                    id="profile-photo"
+                                    name="profilePhoto"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    hidden>
+
+                                <button
+                                    type="button"
+                                    id="remove-profile-photo"
+                                    class="text-action">
+
+                                    إزالة الصورة
+
+                                </button>
+
+                            </div>
+
+                            <div class="form-group">
+                                <label for="profile-photo-caption">
+                                    وصف الصورة (اختياري)
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="profile-photo-caption"
+                                    name="photoCaption"
+                                    maxlength="100"
+                                    placeholder="وصف قصير">
+                            </div>
+
+                        </div>
+
+
+                        <!-- STEP 5 -->
+
+                        <div class="registration-step" data-registration-step="5" hidden>
+
+                            <h3>هوية حسابك في HENO</h3>
+
+                            <p class="step-description">
+                                اختر اسم مستخدم فريدًا يستطيع الآخرون العثور عليك من خلاله.
+                            </p>
+
+                            <div class="form-group">
+
+                                <label for="profile-username">اسم المستخدم</label>
+
+                                <div class="username-input">
+                                    <span>@</span>
+
+                                    <input
+                                        type="text"
+                                        id="profile-username"
+                                        name="username"
+                                        minlength="3"
+                                        maxlength="24"
+                                        autocomplete="username"
+                                        placeholder="username">
+                                </div>
+
+                                <small id="username-availability" aria-live="polite">
+                                    اسم المستخدم يجب أن يكون فريدًا.
+                                </small>
+
+                            </div>
+
+
+                            <div class="heno-id-preview">
+
+                                <div>
+                                    <small>معرّف HENO الخاص بك</small>
+                                    <strong id="generated-heno-id">
+                                        سيتم إنشاؤه تلقائيًا
+                                    </strong>
+                                </div>
+
+                                <span class="heno-id-symbol">H</span>
+
+                            </div>
+
+                            <p class="form-note">
+                                سيتم إنشاء المعرّف النهائي والتحقق من تفرده عند حفظ الحساب في قاعدة البيانات.
+                            </p>
+
+                        </div>
+
+
+                        <!-- STEP 6 -->
+
+                        <div class="registration-step" data-registration-step="6" hidden>
+
+                            <h3>إعداد حسابك والموافقة</h3>
+
+                            <p class="step-description">
+                                راجع اختياراتك وأكمل إعداد حسابك.
+                            </p>
+
+                            <div class="form-group">
+
+                                <label for="profile-language">لغة التطبيق</label>
+
+                                <select id="profile-language" name="language">
+                                    <option value="ar">العربية</option>
+                                    <option value="en">English</option>
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label for="profile-privacy">خصوصية الملف الشخصي</label>
+
+                                <select id="profile-privacy" name="profilePrivacy">
+                                    <option value="everyone">الجميع</option>
+                                    <option value="contacts">جهات الاتصال فقط</option>
+                                </select>
+
+                            </div>
+
+
+                            <div class="consent-list">
+
+                                <label class="consent-item">
+
+                                    <input
+                                        type="checkbox"
+                                        id="accept-terms"
+                                        name="acceptTerms"
+                                        required>
+
+                                    <span>
+                                        أوافق على
+                                        <a href="./terms.html" target="_blank" rel="noopener">
+                                            شروط الاستخدام
+                                        </a>
+                                        .
+                                    </span>
+
+                                </label>
+
+
+                                <label class="consent-item">
+
+                                    <input
+                                        type="checkbox"
+                                        id="accept-privacy"
+                                        name="acceptPrivacy"
+                                        required>
+
+                                    <span>
+                                        اطلعت على
+                                        <a href="./privacy.html" target="_blank" rel="noopener">
+                                            سياسة الخصوصية
+                                        </a>
+                                        وأوافق عليها.
+                                    </span>
+
+                                </label>
+
+
+                                <label class="consent-item">
+
+                                    <input
+                                        type="checkbox"
+                                        id="confirm-age"
+                                        name="confirmAge"
+                                        required>
+
+                                    <span>
+                                        أؤكد استيفائي شرط السن المعلن لاستخدام الخدمة.
+                                    </span>
+
+                                </label>
+
+
+                                <label class="consent-item optional-consent">
+
+                                    <input
+                                        type="checkbox"
+                                        id="marketing-consent"
+                                        name="marketingConsent">
+
+                                    <span>
+                                        أوافق اختياريًا على تلقي الأخبار والعروض.
+                                    </span>
+
+                                </label>
+
+                            </div>
+
+
+                            <div class="registration-summary" id="registration-summary">
+                                <strong>مراجعة الحساب</strong>
+                                <p>سيتم عرض بيانات حسابك هنا قبل إتمام التسجيل.</p>
+                            </div>
+
+                        </div>
+
+
+                        <!-- REGISTRATION NAVIGATION -->
+
+                        <div class="registration-navigation">
+
+                            <button
+                                type="button"
+                                id="registration-back"
+                                class="secondary-button"
+                                hidden>
+
+                                رجوع
+
+                            </button>
+
+                            <button
+                                type="button"
+                                id="registration-next"
+                                class="primary-button">
+
+                                متابعة
+
+                            </button>
+
+                            <button
+                                type="submit"
+                                id="registration-submit"
+                                class="primary-button"
+                                hidden>
+
+                                إنشاء حساب HENO
+
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </section>
+
+
+                <footer class="auth-footer">
+                    <span>HENO CHAT</span>
+                    <span>تواصل بلا حدود</span>
+                </footer>
+
+            </section>
+
+        </div>
+
+    </main>
+
+
+    <!-- =================================================
+         03. MAIN APPLICATION
+    ================================================== -->
+
+    <div id="app-screen" class="app-screen" hidden>
+
+        <!-- HEADER -->
+
+        <header id="app-header" class="app-header">
+
+            <div class="app-brand">
+
+                <div class="app-brand-icon">H</div>
+
+                <div class="app-brand-text">
+                    <strong>HENO</strong>
+                    <small>CHAT</small>
+                </div>
+
+            </div>
+
+
+            <div class="app-header-search">
+
+                <svg viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8">
+                    <circle cx="11" cy="11" r="7"/>
+                    <path d="m20 20-4-4"/>
+                </svg>
+
+                <input
+                    type="search"
+                    id="global-search"
+                    placeholder="ابحث في HENO..."
+                    aria-label="البحث">
+
+            </div>
+
+
+            <div class="app-header-actions">
+
+                <button
+                    type="button"
+                    class="icon-button"
+                    data-action="open-notifications"
+                    aria-label="الإشعارات">
+
+                    <svg viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="1.8">
+                        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/>
+                        <path d="M10 21h4"/>
+                    </svg>
+
+                </button>
+
+
+                <button
+                    type="button"
+                    class="icon-button"
+                    data-action="open-profile"
+                    aria-label="الملف الشخصي">
+
+                    <svg viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="1.8">
+                        <circle cx="12" cy="8" r="4"/>
+                        <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
+                    </svg>
+
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- APPLICATION BODY -->
+
+        <div class="app-layout">
+
+
+            <!-- MAIN SIDEBAR -->
+
+            <aside id="app-sidebar" class="app-sidebar">
+
+                <div class="sidebar-user">
+
+                    <div class="sidebar-avatar" id="sidebar-avatar">
+                        H
+                    </div>
+
+                    <div class="sidebar-user-details">
+                        <strong id="sidebar-user-name">حساب HENO</strong>
+                        <small id="sidebar-user-status">متصل</small>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="icon-button"
+                        data-action="open-profile"
+                        aria-label="الملف الشخصي">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <path d="m9 18 6-6-6-6"/>
+                        </svg>
+
+                    </button>
+
+                </div>
+
+
+                <div class="sidebar-section-title">
+                    التواصل
+                </div>
+
+
+                <nav class="sidebar-navigation" aria-label="التنقل الرئيسي">
+
+                    <button type="button" class="nav-item active" data-page="chats">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/>
+                        </svg>
+
+                        <span>المحادثات</span>
+
+                    </button>
+
+
+                    <button type="button" class="nav-item" data-page="updates">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <circle cx="12" cy="12" r="9"/>
+                            <circle cx="12" cy="12" r="5"/>
+                        </svg>
+
+                        <span>الحالات والمستجدات</span>
+
+                    </button>
+
+
+                    <button type="button" class="nav-item" data-page="calls">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 3.18 2 2 0 0 1 4.11 1h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.7 2.8a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.84.58 2.8.7A2 2 0 0 1 22 16.92z"/>
+                        </svg>
+
+                        <span>المكالمات</span>
+
+                    </button>
+
+
+                    <button type="button" class="nav-item" data-page="contacts">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <rect x="3" y="3" width="18" height="18" rx="3"/>
+                            <circle cx="9" cy="9" r="2.5"/>
+                            <path d="M5 18c.8-2.4 2.1-3.5 4-3.5s3.2 1.1 4 3.5"/>
+                        </svg>
+
+                        <span>جهات الاتصال</span>
+
+                    </button>
+
+
+                    <div class="sidebar-section-title">
+                        المجتمعات
+                    </div>
+
+
+                    <button type="button" class="nav-item" data-page="communities">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="10" cy="7" r="4"/>
+                            <path d="M20 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+
+                        <span>المجتمعات</span>
+
+                    </button>
+
+
+                    <button type="button" class="nav-item" data-page="channels">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <path d="M4 5h16v14H4z"/>
+                            <path d="m4 8 8 5 8-5"/>
+                        </svg>
+
+                        <span>القنوات</span>
+
+                    </button>
+
+
+                    <div class="sidebar-section-title">
+                        حسابك
+                    </div>
+
+
+                    <button type="button" class="nav-item" data-page="profile">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <circle cx="12" cy="8" r="4"/>
+                            <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
+                        </svg>
+
+                        <span>الملف الشخصي</span>
+
+                    </button>
+
+
+                    <button type="button" class="nav-item" data-page="starred">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3z"/>
+                        </svg>
+
+                        <span>الرسائل المميزة</span>
+
+                    </button>
+
+
+                    <button type="button" class="nav-item" data-page="archived">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <rect x="3" y="4" width="18" height="5" rx="1"/>
+                            <path d="M5 9v11h14V9M10 13h4"/>
+                        </svg>
+
+                        <span>الأرشيف</span>
+
+                    </button>
+
+
+                    <button type="button" class="nav-item" data-page="settings">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-1.7 2.94-.08-.02a1.65 1.65 0 0 0-1.75.62l-.04.07h-3.4l-.04-.07a1.65 1.65 0 0 0-1.75-.62l-.08.02-1.7-2.94.06-.06A1.65 1.65 0 0 0 9.6 15l-.07-.04v-3.4l.07-.04a1.65 1.65 0 0 0 .62-1.75l-.02-.08 2.94-1.7.06.06a1.65 1.65 0 0 0 1.82.33l.04-.07h3.4l.04.07a1.65 1.65 0 0 0 1.75.62l.08-.02 1.7 2.94-.06.06A1.65 1.65 0 0 0 19.4 15z"/>
+                        </svg>
+
+                        <span>الإعدادات</span>
+
+                    </button>
+
+                </nav>
+
+
+                <div class="sidebar-footer">
+
+                    <button
+                        type="button"
+                        class="sidebar-footer-button"
+                        data-action="logout">
+
+                        <svg viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.8">
+                            <path d="M10 17l5-5-5-5"/>
+                            <path d="M15 12H3"/>
+                            <path d="M12 3h6a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-6"/>
+                        </svg>
+
+                        <span>تسجيل الخروج</span>
+
+                    </button>
+
+                </div>
+
+            </aside>
+
+
+            <!-- MAIN CONTENT -->
+
+            <main id="app-main" class="app-main">
+
+                <div id="page-container" class="page-container">
+
+                    <div class="app-welcome">
+
+                        <div class="app-welcome-logo">H</div>
+
+                        <h1>مرحبًا بك في HENO CHAT</h1>
+
+                        <p>
+                            مكانك للتواصل والمحادثات.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </main>
+
+        </div>
+
+
+        <!-- MOBILE NAVIGATION -->
+
+        <nav id="mobile-navigation" class="mobile-navigation">
+
+            <button type="button" class="mobile-nav-item active" data-page="chats">
+                <span class="mobile-nav-icon">▣</span>
+                <span>المحادثات</span>
+            </button>
+
+            <button type="button" class="mobile-nav-item" data-page="updates">
+                <span class="mobile-nav-icon">◉</span>
+                <span>الحالات</span>
+            </button>
+
+            <button type="button" class="mobile-nav-item" data-page="communities">
+                <span class="mobile-nav-icon">♧</span>
+                <span>المجتمعات</span>
+            </button>
+
+            <button type="button" class="mobile-nav-item" data-page="calls">
+                <span class="mobile-nav-icon">⌕</span>
+                <span>المكالمات</span>
+            </button>
+
+            <button type="button" class="mobile-nav-item" data-page="settings">
+                <span class="mobile-nav-icon">⚙</span>
+                <span>الإعدادات</span>
+            </button>
+
+        </nav>
+
+    </div>
+
+
+    <!-- =================================================
+         04. MODAL LAYER
+    ================================================== -->
+
+    <div id="modal-layer" class="modal-layer" hidden></div>
+
+
+    <!-- =================================================
+         05. TOAST REGION
+    ================================================== -->
+
+    <div
+        id="toast-region"
+        class="toast-region"
+        aria-live="polite"
+        aria-atomic="true">
+    </div>
+
+
+    <!-- =================================================
+         06. APPLICATION SCRIPTS
+    ================================================== -->
+
+    <script type="module" src="./js/app.js"></script>
 
 </body>
 </html>
