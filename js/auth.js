@@ -2,6 +2,7 @@
 /* =========================================================
    HENO CHAT — AUTHENTICATION & REGISTRATION
    File: js/auth.js
+   Version: 1.1.0
    Six-Step Account Creation
    Firebase-ready architecture
 ========================================================= */
@@ -146,7 +147,6 @@ const HENOAuth = (() => {
 
       case 4: {
         const error = validateImage(d.photo);
-
         return error;
       }
 
@@ -773,9 +773,9 @@ const HENOAuth = (() => {
       emit("registration-submit", payload);
 
       /*
-       * The Firebase authentication module will listen
+       * Firebase authentication module will listen
        * for this event and perform the real operation.
-       * Do not create a fake account here.
+       * No fake account is created here.
        */
 
       if (!firebaseAdapterAvailable()) {
