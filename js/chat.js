@@ -1,9 +1,20 @@
 
 /* =========================================================
-   HENO CHAT — CONVERSATION ENGINE
+   HENO CHAT — ADVANCED CONVERSATION ENGINE
    File: js/chat.js
-   Messaging | Replies | Editing | Forwarding
-   Search | Pin | Star | Realtime Adapter
+   Version: 1.1.0
+
+   FEATURES:
+   Direct Chats | Group Chats
+   Messages | Replies | Editing | Deleting
+   Forwarding | Pinning | Starred Messages
+   Reactions | Search | Read Receipts
+   Typing Indicators | Realtime Subscriptions
+   Archive | Mute | Group Management
+
+   Requires:
+   window.HENOAuthBackend
+   window.HENOChatBackend
 ========================================================= */
 
 const HENOChat = (() => {
@@ -46,11 +57,16 @@ const HENOChat = (() => {
   }
 
   function notify(message, type = "info") {
-    window.HENO?.toast(message, type);
+    if (typeof window.HENO?.toast === "function") {
+      window.HENO.toast(message, type);
+    } else {
+      console.log(`[HENO CHAT] ${message}`);
+    }
   }
 
   function createId() {
-    if (crypto.randomUUID) {
+    if (typeof crypto !== "undefined" &&
+        typeof crypto.randomUUID === "function") {
       return crypto.randomUUID();
     }
 
@@ -75,13 +91,49 @@ const HENOChat = (() => {
     return user;
   }
 
+  function getBackendMethod(method) {
+    const service = window.HENOChatBackend;
+
+    if (!service || typeof service[method] !== "function") {
+      throw new Error(
+        `خدمة المحادثات غير متصلة أو أن الوظيفة ${method} غير مهيأة.`
+      );
+    }
+
+    return service[method].bind(service);
+  }
+
+  async function callBackend(method, payload) {
+    return getBackendMethod(method)(payload);
+  }
+
+  function getTimestamp(value) {
+    if (!value) return 0;
+
+    if (typeof value.toMillis === "function") {
+      return value.toMillis();
+    }
+
+    if (typeof value.toDate === "function") {
+      return value.toDate().getTime();
+    }
+
+    const number = Number(value);
+
+    if (Number.isFinite(number)) return number;
+
+    const date = new Date(value).getTime();
+
+    return Number.isFinite(date) ? date : 0;
+  }
+
   /* =======================================================
      CHAT DATA
   ======================================================= */
 
   function normalizeChat(raw) {
     if (!raw?.id) {
-      throw new Error("Invalid chat data.");
+      throw new Error("بيانات المحادثة غير صحيحة.");
     }
 
     return {
@@ -93,11 +145,12 @@ const HENOChat = (() => {
         ? raw.participants
         : [],
       lastMessage: raw.lastMessage || null,
-      unreadCount: Number(raw.unreadCount || 0),
+      unreadCount: Math.max(0, Number(raw.unreadCount || 0)),
       updatedAt: raw.updatedAt || null,
       muted: Boolean(raw.muted),
       archived: Boolean(raw.archived),
-      pinned: Boolean(raw.pinned)
+      pinned: Boolean(raw.pinned),
+      metadata: raw.metadata || {}
     };
   }
 
@@ -112,34 +165,38 @@ const HENOChat = (() => {
   }
 
   function getChat(chatId) {
-    return state.chats.get(chatId) || null;
+    return state.chats.get(String(chatId)) || null;
   }
 
   function getChats() {
-    return [...state.chats.values()].sort((a, b) => {
-      const timeA = a.updatedAt?.toMillis?.() ||
-        Number(a.updatedAt || 0);
+    return [...state.chats.values()].sort(
+      (a, b) =>
+        getTimestamp(b.updatedAt) -
+        getTimestamp(a.updatedAt)
+    );
+  }
 
-      const timeB = b.updatedAt?.toMillis?.() ||
-        Number(b.updatedAt || 0);
+  function getArchivedChats() {
+    return getChats().filter(chat => chat.archived);
+  }
 
-      return timeB - timeA;
-    });
+  function getUnarchivedChats() {
+    return getChats().filter(chat => !chat.archived);
   }
 
   function setActiveChat(chatId) {
-    if (!state.chats.has(chatId)) {
+    const chat = getChat(chatId);
+
+    if (!chat) {
       notify("المحادثة غير موجودة.", "error");
       return false;
     }
 
-    state.activeChatId = chatId;
+    state.activeChatId = chat.id;
     state.replyTo = null;
     state.editingMessage = null;
 
-    emit("chat-opened", {
-      chat: getChat(chatId)
-    });
+    emit("chat-opened", { chat });
 
     return true;
   }
@@ -153,12 +210,12 @@ const HENOChat = (() => {
   }
 
   /* =======================================================
-     MESSAGE NORMALIZATION
+     MESSAGE DATA
   ======================================================= */
 
   function normalizeMessage(raw) {
     if (!raw?.id || !raw?.chatId) {
-      throw new Error("Invalid message.");
+      throw new Error("بيانات الرسالة غير صحيحة.");
     }
 
     return {
@@ -186,13 +243,14 @@ const HENOChat = (() => {
   }
 
   function getMessages(chatId) {
-    return state.messages.get(chatId) || [];
+    return state.messages.get(String(chatId)) || [];
   }
 
   function saveMessage(raw) {
     const message = normalizeMessage(raw);
 
-    const list = state.messages.get(message.chatId) || [];
+    const list =
+      state.messages.get(message.chatId) || [];
 
     const existing = list.findIndex(
       item => item.id === message.id
@@ -204,15 +262,11 @@ const HENOChat = (() => {
       list.push(message);
     }
 
-    list.sort((a, b) => {
-      const timeA = a.createdAt?.toMillis?.() ||
-        Number(a.createdAt || 0);
-
-      const timeB = b.createdAt?.toMillis?.() ||
-        Number(b.createdAt || 0);
-
-      return timeA - timeB;
-    });
+    list.sort(
+      (a, b) =>
+        getTimestamp(a.createdAt) -
+        getTimestamp(b.createdAt)
+    );
 
     state.messages.set(message.chatId, list);
 
@@ -221,22 +275,14 @@ const HENOChat = (() => {
     return message;
   }
 
-  /* =======================================================
-     BACKEND ADAPTER
-  ======================================================= */
-
-  function backend() {
-    const service = window.HENOChatBackend;
-
-    if (!service) {
-      throw new Error("CHAT_BACKEND_NOT_CONNECTED");
-    }
-
-    return service;
+  function getMessage(chatId, messageId) {
+    return getMessages(chatId).find(
+      message => message.id === String(messageId)
+    ) || null;
   }
 
   /* =======================================================
-     SEND MESSAGE
+     MESSAGE SENDING
   ======================================================= */
 
   async function sendMessage(chatId, text, options = {}) {
@@ -244,22 +290,20 @@ const HENOChat = (() => {
 
     if (!user) return null;
 
-    if (!chatId || !getChat(chatId)) {
+    if (!getChat(chatId)) {
       throw new Error("المحادثة غير متاحة.");
     }
 
     const cleanText = String(text || "").trim();
 
-    if (!cleanText) {
-      return null;
-    }
+    if (!cleanText) return null;
 
     if (cleanText.length > config.maxMessageLength) {
       throw new Error("الرسالة أطول من الحد المسموح.");
     }
 
     const payload = {
-      chatId,
+      chatId: String(chatId),
       senderId: user.uid,
       type: "text",
       text: cleanText,
@@ -271,7 +315,10 @@ const HENOChat = (() => {
     emit("message-sending", { payload });
 
     try {
-      const result = await backend().sendMessage(payload);
+      const result = await callBackend(
+        "sendMessage",
+        payload
+      );
 
       const message = saveMessage(result);
 
@@ -289,7 +336,7 @@ const HENOChat = (() => {
   }
 
   /* =======================================================
-     EDIT MESSAGE
+     MESSAGE EDITING
   ======================================================= */
 
   async function editMessage(chatId, messageId, newText) {
@@ -303,15 +350,13 @@ const HENOChat = (() => {
       throw new Error("نص الرسالة غير صالح.");
     }
 
-    const message = getMessages(chatId).find(
-      item => item.id === messageId
-    );
+    const message = getMessage(chatId, messageId);
 
     if (!message || message.senderId !== user.uid) {
       throw new Error("لا يمكنك تعديل هذه الرسالة.");
     }
 
-    await backend().editMessage({
+    await callBackend("editMessage", {
       chatId,
       messageId,
       text
@@ -319,14 +364,45 @@ const HENOChat = (() => {
 
     emit("message-edited", {
       chatId,
-      messageId
+      messageId,
+      text
     });
 
     return true;
   }
 
+  function startEditingMessage(chatId, messageId) {
+    const user = requireAuthenticatedUser();
+
+    if (!user) return null;
+
+    const message = getMessage(chatId, messageId);
+
+    if (!message || message.senderId !== user.uid) {
+      notify("لا يمكنك تعديل هذه الرسالة.", "error");
+      return null;
+    }
+
+    state.editingMessage = {
+      chatId,
+      messageId,
+      text: message.text
+    };
+
+    emit("message-edit-started", {
+      message: state.editingMessage
+    });
+
+    return state.editingMessage;
+  }
+
+  function cancelEditingMessage() {
+    state.editingMessage = null;
+    emit("message-edit-cancelled");
+  }
+
   /* =======================================================
-     DELETE MESSAGE
+     MESSAGE DELETION
   ======================================================= */
 
   async function deleteMessage(
@@ -338,9 +414,7 @@ const HENOChat = (() => {
 
     if (!user) return false;
 
-    const message = getMessages(chatId).find(
-      item => item.id === messageId
-    );
+    const message = getMessage(chatId, messageId);
 
     if (!message) {
       throw new Error("الرسالة غير موجودة.");
@@ -350,13 +424,15 @@ const HENOChat = (() => {
       forEveryone &&
       message.senderId !== user.uid
     ) {
-      throw new Error("لا يمكنك حذف رسالة شخص آخر للجميع.");
+      throw new Error(
+        "لا يمكنك حذف رسالة شخص آخر للجميع."
+      );
     }
 
-    await backend().deleteMessage({
+    await callBackend("deleteMessage", {
       chatId,
       messageId,
-      forEveryone
+      forEveryone: Boolean(forEveryone)
     });
 
     emit("message-deleted", {
@@ -369,7 +445,7 @@ const HENOChat = (() => {
   }
 
   /* =======================================================
-     REPLY TO MESSAGE
+     REPLY
   ======================================================= */
 
   function replyToMessage(messageId) {
@@ -377,9 +453,7 @@ const HENOChat = (() => {
 
     if (!chatId) return null;
 
-    const message = getMessages(chatId).find(
-      item => item.id === messageId
-    );
+    const message = getMessage(chatId, messageId);
 
     if (!message) return null;
 
@@ -402,8 +476,12 @@ const HENOChat = (() => {
     emit("reply-cancelled");
   }
 
+  function getReplyTarget() {
+    return state.replyTo;
+  }
+
   /* =======================================================
-     FORWARD MESSAGE
+     FORWARDING
   ======================================================= */
 
   async function forwardMessage(
@@ -411,46 +489,73 @@ const HENOChat = (() => {
     messageId,
     targetChatIds
   ) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
 
-    const message = getMessages(sourceChatId).find(
-      item => item.id === messageId
-    );
+    if (!user) return false;
 
-    if (!message) {
-      throw new Error("الرسالة غير موجودة.");
+    const message = getMessage(sourceChatId, messageId);
+
+    if (!message || message.deleted) {
+      throw new Error("الرسالة غير متاحة لإعادة التوجيه.");
     }
 
-    if (!Array.isArray(targetChatIds) || !targetChatIds.length) {
+    if (
+      !Array.isArray(targetChatIds) ||
+      !targetChatIds.length
+    ) {
       throw new Error("اختر محادثة واحدة على الأقل.");
     }
 
-    const result = await backend().forwardMessage({
-      sourceChatId,
-      messageId,
-      targetChatIds
-    });
+    const uniqueTargets = [
+      ...new Set(targetChatIds.map(String))
+    ];
+
+    for (const chatId of uniqueTargets) {
+      if (!getChat(chatId)) {
+        throw new Error("إحدى المحادثات المحددة غير متاحة.");
+      }
+    }
+
+    const result = await callBackend(
+      "forwardMessage",
+      {
+        sourceChatId,
+        messageId,
+        targetChatIds: uniqueTargets
+      }
+    );
 
     emit("message-forwarded", {
       sourceChatId,
       messageId,
-      targetChatIds
+      targetChatIds: uniqueTargets,
+      result
     });
 
     return result;
   }
 
   /* =======================================================
-     PIN MESSAGE
+     PIN MESSAGES
   ======================================================= */
 
-  async function pinMessage(chatId, messageId, pinned = true) {
-    requireAuthenticatedUser();
+  async function pinMessage(
+    chatId,
+    messageId,
+    pinned = true
+  ) {
+    const user = requireAuthenticatedUser();
 
-    await backend().pinMessage({
+    if (!user) return false;
+
+    if (!getMessage(chatId, messageId)) {
+      throw new Error("الرسالة غير موجودة.");
+    }
+
+    await callBackend("pinMessage", {
       chatId,
       messageId,
-      pinned
+      pinned: Boolean(pinned)
     });
 
     if (pinned) {
@@ -468,17 +573,35 @@ const HENOChat = (() => {
     return true;
   }
 
+  function getPinnedMessages(chatId) {
+    return getMessages(chatId).filter(
+      message =>
+        message.pinned ||
+        state.pinnedMessages.has(message.id)
+    );
+  }
+
   /* =======================================================
-     STAR MESSAGE
+     STAR MESSAGES
   ======================================================= */
 
-  async function starMessage(chatId, messageId, starred = true) {
-    requireAuthenticatedUser();
+  async function starMessage(
+    chatId,
+    messageId,
+    starred = true
+  ) {
+    const user = requireAuthenticatedUser();
 
-    await backend().starMessage({
+    if (!user) return false;
+
+    if (!getMessage(chatId, messageId)) {
+      throw new Error("الرسالة غير موجودة.");
+    }
+
+    await callBackend("starMessage", {
       chatId,
       messageId,
-      starred
+      starred: Boolean(starred)
     });
 
     if (starred) {
@@ -496,18 +619,49 @@ const HENOChat = (() => {
     return true;
   }
 
+  function getStarredMessages() {
+    const results = [];
+
+    for (const messages of state.messages.values()) {
+      for (const message of messages) {
+        if (
+          message.starred ||
+          state.starredMessages.has(message.id)
+        ) {
+          results.push(message);
+        }
+      }
+    }
+
+    return results;
+  }
+
   /* =======================================================
      REACTIONS
   ======================================================= */
 
-  async function reactToMessage(chatId, messageId, reaction) {
-    requireAuthenticatedUser();
+  async function reactToMessage(
+    chatId,
+    messageId,
+    reaction
+  ) {
+    const user = requireAuthenticatedUser();
 
-    if (!reaction || typeof reaction !== "string") {
-      throw new Error("تفاعل غير صالح.");
+    if (!user) return false;
+
+    if (!getMessage(chatId, messageId)) {
+      throw new Error("الرسالة غير موجودة.");
     }
 
-    await backend().reactToMessage({
+    if (
+      typeof reaction !== "string" ||
+      !reaction.trim() ||
+      reaction.length > 32
+    ) {
+      throw new Error("التفاعل غير صالح.");
+    }
+
+    await callBackend("reactToMessage", {
       chatId,
       messageId,
       reaction
@@ -523,7 +677,7 @@ const HENOChat = (() => {
   }
 
   /* =======================================================
-     MESSAGE SEARCH
+     SEARCH
   ======================================================= */
 
   function searchMessages(chatId, query) {
@@ -544,15 +698,15 @@ const HENOChat = (() => {
   }
 
   async function searchAllMessages(query) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
+
+    if (!user) return [];
 
     const cleanQuery = String(query || "").trim();
 
-    if (cleanQuery.length < 2) {
-      return [];
-    }
+    if (cleanQuery.length < 2) return [];
 
-    return backend().searchMessages({
+    return callBackend("searchMessages", {
       query: cleanQuery
     });
   }
@@ -562,9 +716,11 @@ const HENOChat = (() => {
   ======================================================= */
 
   async function markAsRead(chatId, messageId) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
 
-    await backend().markAsRead({
+    if (!user) return false;
+
+    await callBackend("markAsRead", {
       chatId,
       messageId
     });
@@ -573,6 +729,8 @@ const HENOChat = (() => {
       chatId,
       messageId
     });
+
+    return true;
   }
 
   async function updateMessageStatus(
@@ -586,9 +744,15 @@ const HENOChat = (() => {
       "read"
     ];
 
-    if (!allowed.includes(status)) return false;
+    if (!allowed.includes(status)) {
+      throw new Error("حالة الرسالة غير صحيحة.");
+    }
 
-    await backend().updateMessageStatus({
+    const user = requireAuthenticatedUser();
+
+    if (!user) return false;
+
+    await callBackend("updateMessageStatus", {
       chatId,
       messageId,
       status
@@ -608,56 +772,82 @@ const HENOChat = (() => {
   ======================================================= */
 
   async function setTyping(chatId, typing) {
-    const user = getCurrentUser();
+    const user = requireAuthenticatedUser();
 
-    if (!user?.uid) return;
+    if (!user) return false;
 
-    await backend().setTyping({
+    await callBackend("setTyping", {
       chatId,
       userId: user.uid,
       typing: Boolean(typing)
     });
+
+    emit("typing-changed", {
+      chatId,
+      userId: user.uid,
+      typing: Boolean(typing)
+    });
+
+    return true;
   }
 
   /* =======================================================
-     CREATE DIRECT CHAT
+     DIRECT CHAT
   ======================================================= */
 
   async function createDirectChat(targetUserId) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
 
-    if (!targetUserId) {
-      throw new Error("حدد المستخدم أولًا.");
+    if (!user) return null;
+
+    if (!targetUserId || targetUserId === user.uid) {
+      throw new Error("حدد مستخدمًا آخر لبدء المحادثة.");
     }
 
-    const result = await backend().createDirectChat({
-      targetUserId
-    });
+    const result = await callBackend(
+      "createDirectChat",
+      { targetUserId }
+    );
 
-    return saveChat(result);
+    const chat = saveChat(result);
+
+    emit("direct-chat-created", { chat });
+
+    return chat;
   }
 
   /* =======================================================
-     CREATE GROUP
+     GROUP CREATION
   ======================================================= */
 
   async function createGroup(title, memberIds = []) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
+
+    if (!user) return null;
 
     const name = String(title || "").trim();
 
-    if (name.length < 2) {
-      throw new Error("اسم المجموعة قصير جدًا.");
+    if (name.length < 2 || name.length > 80) {
+      throw new Error("اسم المجموعة يجب أن يكون من 2 إلى 80 حرفًا.");
     }
 
     if (!Array.isArray(memberIds) || !memberIds.length) {
       throw new Error("أضف عضوًا واحدًا على الأقل.");
     }
 
-    const result = await backend().createGroup({
-      title: name,
-      memberIds
-    });
+    const members = [
+      ...new Set(
+        [user.uid, ...memberIds.map(String)]
+      )
+    ];
+
+    const result = await callBackend(
+      "createGroup",
+      {
+        title: name,
+        memberIds: members
+      }
+    );
 
     const chat = saveChat(result);
 
@@ -667,31 +857,49 @@ const HENOChat = (() => {
   }
 
   /* =======================================================
-     GROUP MEMBER MANAGEMENT
+     GROUP MEMBERS
   ======================================================= */
 
   async function addGroupMember(chatId, userId) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
 
-    return backend().addGroupMember({
+    if (!user) return false;
+
+    if (!userId) {
+      throw new Error("حدد العضو الذي تريد إضافته.");
+    }
+
+    return callBackend("addGroupMember", {
       chatId,
       userId
     });
   }
 
   async function removeGroupMember(chatId, userId) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
 
-    return backend().removeGroupMember({
+    if (!user) return false;
+
+    if (!userId) {
+      throw new Error("حدد العضو الذي تريد إزالته.");
+    }
+
+    return callBackend("removeGroupMember", {
       chatId,
       userId
     });
   }
 
   async function updateGroupInfo(chatId, changes) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
 
-    return backend().updateGroupInfo({
+    if (!user) return false;
+
+    if (!changes || typeof changes !== "object") {
+      throw new Error("بيانات المجموعة غير صحيحة.");
+    }
+
+    return callBackend("updateGroupInfo", {
       chatId,
       changes
     });
@@ -702,37 +910,61 @@ const HENOChat = (() => {
   ======================================================= */
 
   async function archiveChat(chatId, archived = true) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
 
-    await backend().archiveChat({
+    if (!user) return false;
+
+    await callBackend("archiveChat", {
       chatId,
-      archived
+      archived: Boolean(archived)
     });
+
+    const chat = getChat(chatId);
+
+    if (chat) {
+      chat.archived = Boolean(archived);
+      emit("chat-updated", { chat });
+    }
 
     emit("chat-archive-changed", {
       chatId,
       archived
     });
+
+    return true;
   }
 
   async function muteChat(chatId, muted = true) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
 
-    await backend().muteChat({
+    if (!user) return false;
+
+    await callBackend("muteChat", {
       chatId,
-      muted
+      muted: Boolean(muted)
     });
+
+    const chat = getChat(chatId);
+
+    if (chat) {
+      chat.muted = Boolean(muted);
+      emit("chat-updated", { chat });
+    }
 
     emit("chat-mute-changed", {
       chatId,
       muted
     });
+
+    return true;
   }
 
   async function deleteChat(chatId) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
 
-    await backend().deleteChat({ chatId });
+    if (!user) return false;
+
+    await callBackend("deleteChat", { chatId });
 
     state.chats.delete(chatId);
     state.messages.delete(chatId);
@@ -742,10 +974,12 @@ const HENOChat = (() => {
     }
 
     emit("chat-deleted", { chatId });
+
+    return true;
   }
 
   /* =======================================================
-     REALTIME SUBSCRIPTIONS
+     REALTIME CHAT SUBSCRIPTION
   ======================================================= */
 
   function subscribeToChats() {
@@ -757,33 +991,60 @@ const HENOChat = (() => {
       return state.listeners.get("chats");
     }
 
-    const unsubscribe = backend().subscribeToChats(
+    const subscribe = getBackendMethod("subscribeToChats");
+
+    const unsubscribe = subscribe(
       user.uid,
+
       chats => {
+        if (!Array.isArray(chats)) return;
+
         chats.forEach(saveChat);
 
         emit("chats-received", {
           chats: getChats()
         });
       },
-      error => emit("realtime-error", { error })
+
+      error => {
+        emit("realtime-error", { error });
+      }
     );
 
-    state.listeners.set("chats", unsubscribe);
+    if (typeof unsubscribe === "function") {
+      state.listeners.set("chats", unsubscribe);
+    }
 
     return unsubscribe;
   }
 
   function subscribeToMessages(chatId) {
-    requireAuthenticatedUser();
+    const user = requireAuthenticatedUser();
 
-    const existing = state.listeners.get(`messages:${chatId}`);
+    if (!user) return null;
 
-    if (existing) existing();
+    if (!getChat(chatId)) {
+      throw new Error("المحادثة غير موجودة.");
+    }
 
-    const unsubscribe = backend().subscribeToMessages(
+    const key = `messages:${chatId}`;
+
+    const previous = state.listeners.get(key);
+
+    if (typeof previous === "function") {
+      previous();
+    }
+
+    const subscribe = getBackendMethod(
+      "subscribeToMessages"
+    );
+
+    const unsubscribe = subscribe(
       chatId,
+
       messages => {
+        if (!Array.isArray(messages)) return;
+
         messages.forEach(saveMessage);
 
         emit("messages-received", {
@@ -791,10 +1052,15 @@ const HENOChat = (() => {
           messages: getMessages(chatId)
         });
       },
-      error => emit("realtime-error", { error })
+
+      error => {
+        emit("realtime-error", { error });
+      }
     );
 
-    state.listeners.set(`messages:${chatId}`, unsubscribe);
+    if (typeof unsubscribe === "function") {
+      state.listeners.set(key, unsubscribe);
+    }
 
     return unsubscribe;
   }
@@ -809,8 +1075,19 @@ const HENOChat = (() => {
     state.listeners.clear();
   }
 
+  function unsubscribeFromChat(chatId) {
+    const key = `messages:${chatId}`;
+    const unsubscribe = state.listeners.get(key);
+
+    if (typeof unsubscribe === "function") {
+      unsubscribe();
+    }
+
+    state.listeners.delete(key);
+  }
+
   /* =======================================================
-     RENDER MESSAGE
+     MESSAGE DISPLAY
   ======================================================= */
 
   function renderMessage(message) {
@@ -844,7 +1121,13 @@ const HENOChat = (() => {
       `
       : "";
 
+    const forwarded = message.forwarded
+      ? `<div class="message-forwarded">رسالة معاد توجيهها</div>`
+      : "";
+
     article.innerHTML = `
+      ${forwarded}
+
       <div class="message-content">
         ${reply}
         <p class="message-text">${escapeHTML(message.text)}</p>
@@ -861,7 +1144,20 @@ const HENOChat = (() => {
         data-message-action="menu"
         aria-label="خيارات الرسالة"
       >
-        ⋯
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <circle cx="5" cy="12" r="1"></circle>
+          <circle cx="12" cy="12" r="1"></circle>
+          <circle cx="19" cy="12" r="1"></circle>
+        </svg>
       </button>
     `;
 
@@ -871,20 +1167,14 @@ const HENOChat = (() => {
   function formatTime(value) {
     if (!value) return "";
 
-    let date;
+    const timestamp = getTimestamp(value);
 
-    if (typeof value.toDate === "function") {
-      date = value.toDate();
-    } else {
-      date = new Date(value);
-    }
-
-    if (Number.isNaN(date.getTime())) return "";
+    if (!timestamp) return "";
 
     return new Intl.DateTimeFormat("ar-EG", {
       hour: "2-digit",
       minute: "2-digit"
-    }).format(date);
+    }).format(new Date(timestamp));
   }
 
   function renderMessageStatus(status) {
@@ -895,11 +1185,44 @@ const HENOChat = (() => {
     };
 
     return `
-      <span class="message-status message-status-${escapeHTML(status)}"
-        aria-label="${escapeHTML(status)}">
+      <span
+        class="message-status message-status-${escapeHTML(status)}"
+        aria-label="${escapeHTML(status)}"
+      >
         ${labels[status] || ""}
       </span>
     `;
+  }
+
+  function renderMessageList(chatId, container) {
+    if (!container) return;
+
+    const messages = getMessages(chatId);
+
+    container.replaceChildren();
+
+    for (const message of messages) {
+      container.appendChild(renderMessage(message));
+    }
+  }
+
+  /* =======================================================
+     CLEANUP
+  ======================================================= */
+
+  function reset() {
+    unsubscribeAll();
+
+    state.activeChatId = null;
+    state.chats.clear();
+    state.messages.clear();
+    state.replyTo = null;
+    state.editingMessage = null;
+    state.pinnedMessages.clear();
+    state.starredMessages.clear();
+    state.searchQuery = "";
+
+    emit("chat-state-reset");
   }
 
   /* =======================================================
@@ -911,9 +1234,9 @@ const HENOChat = (() => {
 
     state.initialized = true;
 
-    document.dispatchEvent(
-      new CustomEvent("heno:chat:initialized")
-    );
+    emit("initialized", {
+      version: "1.1.0"
+    });
   }
 
   /* =======================================================
@@ -922,11 +1245,16 @@ const HENOChat = (() => {
 
   return {
     init,
+    createId,
 
     getChat,
     getChats,
-    getMessages,
+    getArchivedChats,
+    getUnarchivedChats,
+
     saveChat,
+    getMessages,
+    getMessage,
     saveMessage,
 
     setActiveChat,
@@ -934,14 +1262,22 @@ const HENOChat = (() => {
 
     sendMessage,
     editMessage,
+    startEditingMessage,
+    cancelEditingMessage,
     deleteMessage,
 
     replyToMessage,
     cancelReply,
+    getReplyTarget,
+
     forwardMessage,
 
     pinMessage,
+    getPinnedMessages,
+
     starMessage,
+    getStarredMessages,
+
     reactToMessage,
 
     searchMessages,
@@ -953,6 +1289,7 @@ const HENOChat = (() => {
 
     createDirectChat,
     createGroup,
+
     addGroupMember,
     removeGroupMember,
     updateGroupInfo,
@@ -963,10 +1300,14 @@ const HENOChat = (() => {
 
     subscribeToChats,
     subscribeToMessages,
+    unsubscribeFromChat,
     unsubscribeAll,
 
     renderMessage,
-    formatTime
+    renderMessageList,
+    formatTime,
+
+    reset
   };
 
 })();
