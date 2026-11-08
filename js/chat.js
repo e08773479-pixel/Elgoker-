@@ -1,739 +1,975 @@
-/* =========================================
-   HENO CHAT — CHAT ENGINE
-   Local conversation engine.
-   Firebase sync will be added later.
-========================================= */
 
-const Chat = (() => {
+/* =========================================================
+   HENO CHAT — CONVERSATION ENGINE
+   File: js/chat.js
+   Messaging | Replies | Editing | Forwarding
+   Search | Pin | Star | Realtime Adapter
+========================================================= */
+
+const HENOChat = (() => {
   "use strict";
+
+  const state = {
+    activeChatId: null,
+    chats: new Map(),
+    messages: new Map(),
+    listeners: new Map(),
+    searchQuery: "",
+    replyTo: null,
+    editingMessage: null,
+    pinnedMessages: new Set(),
+    starredMessages: new Set(),
+    initialized: false
+  };
+
+  const config = {
+    maxMessageLength: 10000,
+    pageSize: 40
+  };
 
   const $ = (selector, root = document) =>
     root.querySelector(selector);
 
-  const $$ = (selector, root = document) =>
-    [...root.querySelectorAll(selector)];
-
-  const STORAGE_KEY = "heno_chat_data";
-
-  const state = {
-    conversations: [],
-    activeConversationId: null,
-    replyTo: null,
-    searchQuery: "",
-    editingMessageId: null
-  };
-
-  function uid() {
-    return (
-      Date.now().toString(36) +
-      Math.random().toString(36).slice(2, 9)
-    );
-  }
-
-  function escapeHTML(value = "") {
-    return String(value).replace(/[&<>"']/g, char => ({
+  const escapeHTML = value =>
+    String(value ?? "").replace(/[&<>"']/g, char => ({
       "&": "&amp;",
       "<": "&lt;",
       ">": "&gt;",
       '"': "&quot;",
       "'": "&#039;"
     })[char]);
-  }
 
-  function formatTime(timestamp) {
-    return new Intl.DateTimeFormat("ar-EG", {
-      hour: "2-digit",
-      minute: "2-digit"
-    }).format(new Date(timestamp));
-  }
-
-  function save() {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(state.conversations)
-      );
-    } catch (error) {
-      console.error("HENO chat storage error:", error);
-      notify("تعذر حفظ المحادثات على هذا الجهاز");
-    }
-  }
-
-  function load() {
-    try {
-      const saved = JSON.parse(
-        localStorage.getItem(STORAGE_KEY) || "[]"
-      );
-
-      state.conversations = Array.isArray(saved) ? saved : [];
-    } catch {
-      state.conversations = [];
-    }
-  }
-
-  function notify(message) {
-    if (typeof window.HENO?.toast === "function") {
-      window.HENO.toast(message);
-      return;
-    }
-
-    const toast = $("#toast");
-
-    if (!toast) return;
-
-    toast.textContent = message;
-    toast.classList.add("show");
-
-    setTimeout(() => {
-      toast.classList.remove("show");
-    }, 2500);
-  }
-
-  function getConversation(id) {
-    return state.conversations.find(
-      conversation => conversation.id === id
-    );
-  }
-
-  function getActiveConversation() {
-    return getConversation(state.activeConversationId);
-  }
-
-  function createConversation(data = {}) {
-    const conversation = {
-      id: uid(),
-      name: data.name || "محادثة جديدة",
-      avatar: data.avatar || "",
-      type: data.type || "private",
-      online: Boolean(data.online),
-      pinned: false,
-      muted: false,
-      archived: false,
-      unread: 0,
-      createdAt: Date.now(),
-      messages: []
-    };
-
-    state.conversations.unshift(conversation);
-    save();
-    renderConversationList();
-
-    return conversation;
-  }
-
-  function openConversation(id) {
-    const conversation = getConversation(id);
-
-    if (!conversation) {
-      notify("المحادثة غير موجودة");
-      return;
-    }
-
-    state.activeConversationId = id;
-    state.replyTo = null;
-    conversation.unread = 0;
-
-    save();
-    renderConversationList();
-    renderMessages();
-    updateConversationHeader();
-
+  function emit(name, detail = {}) {
     document.dispatchEvent(
-      new CustomEvent("heno:conversation-opened", {
-        detail: { conversationId: id }
-      })
+      new CustomEvent(`heno:chat:${name}`, { detail })
     );
   }
 
-  function sendMessage(text, options = {}) {
-    const conversation = getActiveConversation();
+  function notify(message, type = "info") {
+    window.HENO?.toast(message, type);
+  }
 
-    if (!conversation) {
-      notify("افتح محادثة أولًا");
+  function createId() {
+    if (crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+
+    return [
+      Date.now().toString(36),
+      Math.random().toString(36).slice(2)
+    ].join("-");
+  }
+
+  function getCurrentUser() {
+    return window.HENOAuthBackend?.currentUser || null;
+  }
+
+  function requireAuthenticatedUser() {
+    const user = getCurrentUser();
+
+    if (!user?.uid) {
+      notify("سجّل الدخول أولًا لاستخدام المحادثات.", "error");
       return null;
     }
 
-    const content = String(text || "").trim();
-
-    if (!content) return null;
-
-    const message = {
-      id: uid(),
-      text: content,
-      sender: "me",
-      type: options.type || "text",
-      timestamp: Date.now(),
-      edited: false,
-      deleted: false,
-      replyTo: state.replyTo
-        ? { ...state.replyTo }
-        : null,
-      reactions: [],
-      pinned: false,
-      starred: false
-    };
-
-    conversation.messages.push(message);
-
-    state.replyTo = null;
-
-    save();
-    renderMessages();
-    renderConversationList();
-
-    document.dispatchEvent(
-      new CustomEvent("heno:message-sent", {
-        detail: {
-          conversationId: conversation.id,
-          message
-        }
-      })
-    );
-
-    return message;
+    return user;
   }
 
-  function receiveMessage(conversationId, text, sender = "other") {
-    const conversation = getConversation(conversationId);
+  /* =======================================================
+     CHAT DATA
+  ======================================================= */
 
-    if (!conversation) return null;
-
-    const message = {
-      id: uid(),
-      text: String(text || ""),
-      sender,
-      type: "text",
-      timestamp: Date.now(),
-      edited: false,
-      deleted: false,
-      replyTo: null,
-      reactions: [],
-      pinned: false,
-      starred: false
-    };
-
-    conversation.messages.push(message);
-
-    if (state.activeConversationId !== conversationId) {
-      conversation.unread++;
+  function normalizeChat(raw) {
+    if (!raw?.id) {
+      throw new Error("Invalid chat data.");
     }
 
-    save();
-    renderMessages();
-    renderConversationList();
+    return {
+      id: String(raw.id),
+      type: raw.type === "group" ? "group" : "direct",
+      title: String(raw.title || ""),
+      photoURL: raw.photoURL || null,
+      participants: Array.isArray(raw.participants)
+        ? raw.participants
+        : [],
+      lastMessage: raw.lastMessage || null,
+      unreadCount: Number(raw.unreadCount || 0),
+      updatedAt: raw.updatedAt || null,
+      muted: Boolean(raw.muted),
+      archived: Boolean(raw.archived),
+      pinned: Boolean(raw.pinned)
+    };
+  }
+
+  function saveChat(raw) {
+    const chat = normalizeChat(raw);
+
+    state.chats.set(chat.id, chat);
+
+    emit("chat-updated", { chat });
+
+    return chat;
+  }
+
+  function getChat(chatId) {
+    return state.chats.get(chatId) || null;
+  }
+
+  function getChats() {
+    return [...state.chats.values()].sort((a, b) => {
+      const timeA = a.updatedAt?.toMillis?.() ||
+        Number(a.updatedAt || 0);
+
+      const timeB = b.updatedAt?.toMillis?.() ||
+        Number(b.updatedAt || 0);
+
+      return timeB - timeA;
+    });
+  }
+
+  function setActiveChat(chatId) {
+    if (!state.chats.has(chatId)) {
+      notify("المحادثة غير موجودة.", "error");
+      return false;
+    }
+
+    state.activeChatId = chatId;
+    state.replyTo = null;
+    state.editingMessage = null;
+
+    emit("chat-opened", {
+      chat: getChat(chatId)
+    });
+
+    return true;
+  }
+
+  function closeActiveChat() {
+    state.activeChatId = null;
+    state.replyTo = null;
+    state.editingMessage = null;
+
+    emit("chat-closed");
+  }
+
+  /* =======================================================
+     MESSAGE NORMALIZATION
+  ======================================================= */
+
+  function normalizeMessage(raw) {
+    if (!raw?.id || !raw?.chatId) {
+      throw new Error("Invalid message.");
+    }
+
+    return {
+      id: String(raw.id),
+      chatId: String(raw.chatId),
+      senderId: String(raw.senderId || ""),
+      type: raw.type || "text",
+      text: String(raw.text || ""),
+      createdAt: raw.createdAt || null,
+      editedAt: raw.editedAt || null,
+      replyTo: raw.replyTo || null,
+      forwarded: Boolean(raw.forwarded),
+      forwardedFrom: raw.forwardedFrom || null,
+      pinned: Boolean(raw.pinned),
+      starred: Boolean(raw.starred),
+      deleted: Boolean(raw.deleted),
+      deletedForEveryone: Boolean(raw.deletedForEveryone),
+      attachments: Array.isArray(raw.attachments)
+        ? raw.attachments
+        : [],
+      status: raw.status || "sent",
+      reactions: raw.reactions || {},
+      metadata: raw.metadata || {}
+    };
+  }
+
+  function getMessages(chatId) {
+    return state.messages.get(chatId) || [];
+  }
+
+  function saveMessage(raw) {
+    const message = normalizeMessage(raw);
+
+    const list = state.messages.get(message.chatId) || [];
+
+    const existing = list.findIndex(
+      item => item.id === message.id
+    );
+
+    if (existing >= 0) {
+      list[existing] = message;
+    } else {
+      list.push(message);
+    }
+
+    list.sort((a, b) => {
+      const timeA = a.createdAt?.toMillis?.() ||
+        Number(a.createdAt || 0);
+
+      const timeB = b.createdAt?.toMillis?.() ||
+        Number(b.createdAt || 0);
+
+      return timeA - timeB;
+    });
+
+    state.messages.set(message.chatId, list);
+
+    emit("message-updated", { message });
 
     return message;
   }
 
-  function editMessage(messageId, newText) {
-    const conversation = getActiveConversation();
-    if (!conversation) return;
+  /* =======================================================
+     BACKEND ADAPTER
+  ======================================================= */
 
-    const message = conversation.messages.find(
-      item => item.id === messageId
-    );
+  function backend() {
+    const service = window.HENOChatBackend;
 
-    if (!message || message.sender !== "me") return;
+    if (!service) {
+      throw new Error("CHAT_BACKEND_NOT_CONNECTED");
+    }
+
+    return service;
+  }
+
+  /* =======================================================
+     SEND MESSAGE
+  ======================================================= */
+
+  async function sendMessage(chatId, text, options = {}) {
+    const user = requireAuthenticatedUser();
+
+    if (!user) return null;
+
+    if (!chatId || !getChat(chatId)) {
+      throw new Error("المحادثة غير متاحة.");
+    }
+
+    const cleanText = String(text || "").trim();
+
+    if (!cleanText) {
+      return null;
+    }
+
+    if (cleanText.length > config.maxMessageLength) {
+      throw new Error("الرسالة أطول من الحد المسموح.");
+    }
+
+    const payload = {
+      chatId,
+      senderId: user.uid,
+      type: "text",
+      text: cleanText,
+      replyTo: options.replyTo || state.replyTo || null,
+      forwarded: Boolean(options.forwarded),
+      forwardedFrom: options.forwardedFrom || null
+    };
+
+    emit("message-sending", { payload });
+
+    try {
+      const result = await backend().sendMessage(payload);
+
+      const message = saveMessage(result);
+
+      state.replyTo = null;
+      state.editingMessage = null;
+
+      emit("message-sent", { message });
+
+      return message;
+
+    } catch (error) {
+      emit("message-send-error", { error });
+      throw error;
+    }
+  }
+
+  /* =======================================================
+     EDIT MESSAGE
+  ======================================================= */
+
+  async function editMessage(chatId, messageId, newText) {
+    const user = requireAuthenticatedUser();
+
+    if (!user) return false;
 
     const text = String(newText || "").trim();
-    if (!text) return;
 
-    message.text = text;
-    message.edited = true;
-
-    save();
-    renderMessages();
-    notify("تم تعديل الرسالة");
-  }
-
-  function deleteMessage(messageId, forEveryone = false) {
-    const conversation = getActiveConversation();
-    if (!conversation) return;
-
-    const message = conversation.messages.find(
-      item => item.id === messageId
-    );
-
-    if (!message) return;
-
-    if (forEveryone) {
-      message.text = "تم حذف هذه الرسالة";
-      message.deleted = true;
-      message.type = "deleted";
-    } else {
-      conversation.messages = conversation.messages.filter(
-        item => item.id !== messageId
-      );
+    if (!text || text.length > config.maxMessageLength) {
+      throw new Error("نص الرسالة غير صالح.");
     }
 
-    save();
-    renderMessages();
-    renderConversationList();
-  }
-
-  function setReply(messageId) {
-    const conversation = getActiveConversation();
-    if (!conversation) return;
-
-    const message = conversation.messages.find(
+    const message = getMessages(chatId).find(
       item => item.id === messageId
     );
 
-    if (!message) return;
+    if (!message || message.senderId !== user.uid) {
+      throw new Error("لا يمكنك تعديل هذه الرسالة.");
+    }
+
+    await backend().editMessage({
+      chatId,
+      messageId,
+      text
+    });
+
+    emit("message-edited", {
+      chatId,
+      messageId
+    });
+
+    return true;
+  }
+
+  /* =======================================================
+     DELETE MESSAGE
+  ======================================================= */
+
+  async function deleteMessage(
+    chatId,
+    messageId,
+    forEveryone = false
+  ) {
+    const user = requireAuthenticatedUser();
+
+    if (!user) return false;
+
+    const message = getMessages(chatId).find(
+      item => item.id === messageId
+    );
+
+    if (!message) {
+      throw new Error("الرسالة غير موجودة.");
+    }
+
+    if (
+      forEveryone &&
+      message.senderId !== user.uid
+    ) {
+      throw new Error("لا يمكنك حذف رسالة شخص آخر للجميع.");
+    }
+
+    await backend().deleteMessage({
+      chatId,
+      messageId,
+      forEveryone
+    });
+
+    emit("message-deleted", {
+      chatId,
+      messageId,
+      forEveryone
+    });
+
+    return true;
+  }
+
+  /* =======================================================
+     REPLY TO MESSAGE
+  ======================================================= */
+
+  function replyToMessage(messageId) {
+    const chatId = state.activeChatId;
+
+    if (!chatId) return null;
+
+    const message = getMessages(chatId).find(
+      item => item.id === messageId
+    );
+
+    if (!message) return null;
 
     state.replyTo = {
       id: message.id,
+      senderId: message.senderId,
       text: message.text,
-      sender: message.sender
+      type: message.type
     };
 
-    const preview = $("#replyPreview");
+    emit("reply-selected", {
+      message: state.replyTo
+    });
 
-    if (preview) {
-      preview.hidden = false;
-      preview.textContent = `الرد على: ${message.text}`;
-    }
-
-    $("#messageInput")?.focus();
+    return state.replyTo;
   }
 
   function cancelReply() {
     state.replyTo = null;
-
-    const preview = $("#replyPreview");
-
-    if (preview) {
-      preview.hidden = true;
-      preview.textContent = "";
-    }
+    emit("reply-cancelled");
   }
 
-  function toggleReaction(messageId, emoji) {
-    const conversation = getActiveConversation();
-    if (!conversation) return;
+  /* =======================================================
+     FORWARD MESSAGE
+  ======================================================= */
 
-    const message = conversation.messages.find(
+  async function forwardMessage(
+    sourceChatId,
+    messageId,
+    targetChatIds
+  ) {
+    requireAuthenticatedUser();
+
+    const message = getMessages(sourceChatId).find(
       item => item.id === messageId
     );
 
-    if (!message) return;
+    if (!message) {
+      throw new Error("الرسالة غير موجودة.");
+    }
 
-    const existing = message.reactions.find(
-      reaction => reaction.emoji === emoji
-    );
+    if (!Array.isArray(targetChatIds) || !targetChatIds.length) {
+      throw new Error("اختر محادثة واحدة على الأقل.");
+    }
 
-    if (existing) {
-      existing.count++;
+    const result = await backend().forwardMessage({
+      sourceChatId,
+      messageId,
+      targetChatIds
+    });
 
-      if (existing.count > 1) {
-        existing.count = 1;
-      }
+    emit("message-forwarded", {
+      sourceChatId,
+      messageId,
+      targetChatIds
+    });
+
+    return result;
+  }
+
+  /* =======================================================
+     PIN MESSAGE
+  ======================================================= */
+
+  async function pinMessage(chatId, messageId, pinned = true) {
+    requireAuthenticatedUser();
+
+    await backend().pinMessage({
+      chatId,
+      messageId,
+      pinned
+    });
+
+    if (pinned) {
+      state.pinnedMessages.add(messageId);
     } else {
-      message.reactions.push({
-        emoji,
-        count: 1
-      });
+      state.pinnedMessages.delete(messageId);
     }
 
-    save();
-    renderMessages();
+    emit("message-pin-changed", {
+      chatId,
+      messageId,
+      pinned
+    });
+
+    return true;
   }
 
-  function togglePin(messageId) {
-    const conversation = getActiveConversation();
-    if (!conversation) return;
+  /* =======================================================
+     STAR MESSAGE
+  ======================================================= */
 
-    const message = conversation.messages.find(
-      item => item.id === messageId
-    );
+  async function starMessage(chatId, messageId, starred = true) {
+    requireAuthenticatedUser();
 
-    if (!message) return;
+    await backend().starMessage({
+      chatId,
+      messageId,
+      starred
+    });
 
-    message.pinned = !message.pinned;
+    if (starred) {
+      state.starredMessages.add(messageId);
+    } else {
+      state.starredMessages.delete(messageId);
+    }
 
-    save();
-    renderMessages();
+    emit("message-star-changed", {
+      chatId,
+      messageId,
+      starred
+    });
 
-    notify(
-      message.pinned
-        ? "تم تثبيت الرسالة"
-        : "تم إلغاء تثبيت الرسالة"
-    );
+    return true;
   }
 
-  function toggleStar(messageId) {
-    const conversation = getActiveConversation();
-    if (!conversation) return;
+  /* =======================================================
+     REACTIONS
+  ======================================================= */
 
-    const message = conversation.messages.find(
-      item => item.id === messageId
-    );
+  async function reactToMessage(chatId, messageId, reaction) {
+    requireAuthenticatedUser();
 
-    if (!message) return;
+    if (!reaction || typeof reaction !== "string") {
+      throw new Error("تفاعل غير صالح.");
+    }
 
-    message.starred = !message.starred;
+    await backend().reactToMessage({
+      chatId,
+      messageId,
+      reaction
+    });
 
-    save();
-    renderMessages();
+    emit("message-reaction", {
+      chatId,
+      messageId,
+      reaction
+    });
+
+    return true;
   }
 
-  function searchMessages(query) {
-    state.searchQuery = String(query || "")
+  /* =======================================================
+     MESSAGE SEARCH
+  ======================================================= */
+
+  function searchMessages(chatId, query) {
+    const cleanQuery = String(query || "")
       .trim()
       .toLowerCase();
 
-    renderMessages();
+    state.searchQuery = cleanQuery;
+
+    if (!cleanQuery) {
+      return getMessages(chatId);
+    }
+
+    return getMessages(chatId).filter(message =>
+      !message.deleted &&
+      message.text.toLowerCase().includes(cleanQuery)
+    );
   }
 
-  function renderConversationList() {
-    const container = $("#chatList");
-    if (!container) return;
+  async function searchAllMessages(query) {
+    requireAuthenticatedUser();
 
-    const conversations = state.conversations
-      .filter(item => !item.archived)
-      .filter(item => {
-        const query = state.searchQuery;
+    const cleanQuery = String(query || "").trim();
 
-        if (!query) return true;
-
-        return (
-          item.name.toLowerCase().includes(query) ||
-          item.messages.some(message =>
-            message.text.toLowerCase().includes(query)
-          )
-        );
-      })
-      .sort((a, b) => {
-        if (a.pinned !== b.pinned) {
-          return Number(b.pinned) - Number(a.pinned);
-        }
-
-        return b.createdAt - a.createdAt;
-      });
-
-    if (!conversations.length) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <p>لا توجد محادثات حتى الآن</p>
-        </div>
-      `;
-      return;
+    if (cleanQuery.length < 2) {
+      return [];
     }
 
-    container.innerHTML = conversations.map(item => {
-      const last = item.messages[item.messages.length - 1];
-
-      return `
-        <button
-          class="chat-item ${
-            state.activeConversationId === item.id ? "active" : ""
-          }"
-          data-chat-open="${escapeHTML(item.id)}"
-          type="button"
-        >
-          <span class="chat-avatar">
-            ${
-              item.avatar
-                ? `<img src="${escapeHTML(item.avatar)}" alt="">`
-                : escapeHTML(item.name.slice(0, 1))
-            }
-          </span>
-
-          <span class="chat-info">
-            <strong>${escapeHTML(item.name)}</strong>
-            <small>
-              ${escapeHTML(last?.text || "ابدأ المحادثة")}
-            </small>
-          </span>
-
-          <span class="chat-meta">
-            ${
-              last
-                ? `<small>${formatTime(last.timestamp)}</small>`
-                : ""
-            }
-
-            ${
-              item.unread
-                ? `<b class="unread-count">${item.unread}</b>`
-                : ""
-            }
-          </span>
-        </button>
-      `;
-    }).join("");
+    return backend().searchMessages({
+      query: cleanQuery
+    });
   }
 
-  function renderMessages() {
-    const container = $("#messagesContainer");
-    const conversation = getActiveConversation();
+  /* =======================================================
+     READ RECEIPTS
+  ======================================================= */
 
-    if (!container || !conversation) return;
+  async function markAsRead(chatId, messageId) {
+    requireAuthenticatedUser();
 
-    let messages = conversation.messages;
+    await backend().markAsRead({
+      chatId,
+      messageId
+    });
 
-    if (state.searchQuery) {
-      messages = messages.filter(message =>
-        message.text.toLowerCase().includes(state.searchQuery)
-      );
-    }
-
-    if (!messages.length) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <p>لا توجد رسائل هنا بعد</p>
-          <small>ابدأ أول محادثة الآن</small>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = messages.map(message => {
-      const mine = message.sender === "me";
-
-      return `
-        <article
-          class="message ${mine ? "sent" : "received"}"
-          data-message-id="${escapeHTML(message.id)}"
-        >
-          ${
-            message.replyTo
-              ? `
-                <div class="message-reply">
-                  ${escapeHTML(message.replyTo.text)}
-                </div>
-              `
-              : ""
-          }
-
-          <div class="message-content">
-            ${escapeHTML(message.text)}
-          </div>
-
-          <div class="message-footer">
-            <time>${formatTime(message.timestamp)}</time>
-            ${message.edited ? "<small>معدّلة</small>" : ""}
-            ${message.pinned ? "<small>مثبّتة</small>" : ""}
-            ${message.starred ? "<small>★</small>" : ""}
-          </div>
-
-          ${
-            message.reactions.length
-              ? `
-                <div class="message-reactions">
-                  ${message.reactions.map(reaction => `
-                    <span>
-                      ${escapeHTML(reaction.emoji)}
-                      ${reaction.count}
-                    </span>
-                  `).join("")}
-                </div>
-              `
-              : ""
-          }
-
-          <div class="message-actions">
-            <button type="button"
-              data-message-action="reply"
-              data-message-id="${escapeHTML(message.id)}">
-              رد
-            </button>
-
-            <button type="button"
-              data-message-action="react"
-              data-message-id="${escapeHTML(message.id)}">
-              تفاعل
-            </button>
-
-            <button type="button"
-              data-message-action="star"
-              data-message-id="${escapeHTML(message.id)}">
-              حفظ
-            </button>
-
-            <button type="button"
-              data-message-action="pin"
-              data-message-id="${escapeHTML(message.id)}">
-              تثبيت
-            </button>
-
-            ${
-              mine
-                ? `
-                  <button type="button"
-                    data-message-action="edit"
-                    data-message-id="${escapeHTML(message.id)}">
-                    تعديل
-                  </button>
-                `
-                : ""
-            }
-
-            <button type="button"
-              data-message-action="delete"
-              data-message-id="${escapeHTML(message.id)}">
-              حذف
-            </button>
-          </div>
-        </article>
-      `;
-    }).join("");
-
-    container.scrollTop = container.scrollHeight;
+    emit("messages-read", {
+      chatId,
+      messageId
+    });
   }
 
-  function updateConversationHeader() {
-    const conversation = getActiveConversation();
-    if (!conversation) return;
+  async function updateMessageStatus(
+    chatId,
+    messageId,
+    status
+  ) {
+    const allowed = [
+      "sent",
+      "delivered",
+      "read"
+    ];
 
-    const name = $("#conversationName");
-    const avatar = $("#conversationAvatar");
-    const status = $("#conversationStatus");
+    if (!allowed.includes(status)) return false;
 
-    if (name) name.textContent = conversation.name;
+    await backend().updateMessageStatus({
+      chatId,
+      messageId,
+      status
+    });
 
-    if (avatar) {
-      avatar.textContent = conversation.avatar
-        ? ""
-        : conversation.name.slice(0, 1);
+    emit("message-status", {
+      chatId,
+      messageId,
+      status
+    });
 
-      if (conversation.avatar) {
-        avatar.innerHTML = `
-          <img src="${escapeHTML(conversation.avatar)}" alt="">
-        `;
-      }
-    }
-
-    if (status) {
-      status.textContent = conversation.online
-        ? "متصل الآن"
-        : "غير متصل";
-    }
+    return true;
   }
 
-  function handleMessageAction(button) {
-    const action = button.dataset.messageAction;
-    const id = button.dataset.messageId;
+  /* =======================================================
+     TYPING INDICATOR
+  ======================================================= */
 
-    if (!action || !id) return;
+  async function setTyping(chatId, typing) {
+    const user = getCurrentUser();
 
-    const conversation = getActiveConversation();
-    const message = conversation?.messages.find(
-      item => item.id === id
+    if (!user?.uid) return;
+
+    await backend().setTyping({
+      chatId,
+      userId: user.uid,
+      typing: Boolean(typing)
+    });
+  }
+
+  /* =======================================================
+     CREATE DIRECT CHAT
+  ======================================================= */
+
+  async function createDirectChat(targetUserId) {
+    requireAuthenticatedUser();
+
+    if (!targetUserId) {
+      throw new Error("حدد المستخدم أولًا.");
+    }
+
+    const result = await backend().createDirectChat({
+      targetUserId
+    });
+
+    return saveChat(result);
+  }
+
+  /* =======================================================
+     CREATE GROUP
+  ======================================================= */
+
+  async function createGroup(title, memberIds = []) {
+    requireAuthenticatedUser();
+
+    const name = String(title || "").trim();
+
+    if (name.length < 2) {
+      throw new Error("اسم المجموعة قصير جدًا.");
+    }
+
+    if (!Array.isArray(memberIds) || !memberIds.length) {
+      throw new Error("أضف عضوًا واحدًا على الأقل.");
+    }
+
+    const result = await backend().createGroup({
+      title: name,
+      memberIds
+    });
+
+    const chat = saveChat(result);
+
+    emit("group-created", { chat });
+
+    return chat;
+  }
+
+  /* =======================================================
+     GROUP MEMBER MANAGEMENT
+  ======================================================= */
+
+  async function addGroupMember(chatId, userId) {
+    requireAuthenticatedUser();
+
+    return backend().addGroupMember({
+      chatId,
+      userId
+    });
+  }
+
+  async function removeGroupMember(chatId, userId) {
+    requireAuthenticatedUser();
+
+    return backend().removeGroupMember({
+      chatId,
+      userId
+    });
+  }
+
+  async function updateGroupInfo(chatId, changes) {
+    requireAuthenticatedUser();
+
+    return backend().updateGroupInfo({
+      chatId,
+      changes
+    });
+  }
+
+  /* =======================================================
+     CHAT MANAGEMENT
+  ======================================================= */
+
+  async function archiveChat(chatId, archived = true) {
+    requireAuthenticatedUser();
+
+    await backend().archiveChat({
+      chatId,
+      archived
+    });
+
+    emit("chat-archive-changed", {
+      chatId,
+      archived
+    });
+  }
+
+  async function muteChat(chatId, muted = true) {
+    requireAuthenticatedUser();
+
+    await backend().muteChat({
+      chatId,
+      muted
+    });
+
+    emit("chat-mute-changed", {
+      chatId,
+      muted
+    });
+  }
+
+  async function deleteChat(chatId) {
+    requireAuthenticatedUser();
+
+    await backend().deleteChat({ chatId });
+
+    state.chats.delete(chatId);
+    state.messages.delete(chatId);
+
+    if (state.activeChatId === chatId) {
+      closeActiveChat();
+    }
+
+    emit("chat-deleted", { chatId });
+  }
+
+  /* =======================================================
+     REALTIME SUBSCRIPTIONS
+  ======================================================= */
+
+  function subscribeToChats() {
+    const user = requireAuthenticatedUser();
+
+    if (!user) return null;
+
+    if (state.listeners.has("chats")) {
+      return state.listeners.get("chats");
+    }
+
+    const unsubscribe = backend().subscribeToChats(
+      user.uid,
+      chats => {
+        chats.forEach(saveChat);
+
+        emit("chats-received", {
+          chats: getChats()
+        });
+      },
+      error => emit("realtime-error", { error })
     );
 
-    if (!message) return;
+    state.listeners.set("chats", unsubscribe);
 
-    switch (action) {
-      case "reply":
-        setReply(id);
-        break;
+    return unsubscribe;
+  }
 
-      case "react":
-        toggleReaction(id, "❤️");
-        break;
+  function subscribeToMessages(chatId) {
+    requireAuthenticatedUser();
 
-      case "star":
-        toggleStar(id);
-        break;
+    const existing = state.listeners.get(`messages:${chatId}`);
 
-      case "pin":
-        togglePin(id);
-        break;
+    if (existing) existing();
 
-      case "edit": {
-        const updated = prompt("اكتب النص الجديد:", message.text);
+    const unsubscribe = backend().subscribeToMessages(
+      chatId,
+      messages => {
+        messages.forEach(saveMessage);
 
-        if (updated !== null) {
-          editMessage(id, updated);
-        }
-        break;
+        emit("messages-received", {
+          chatId,
+          messages: getMessages(chatId)
+        });
+      },
+      error => emit("realtime-error", { error })
+    );
+
+    state.listeners.set(`messages:${chatId}`, unsubscribe);
+
+    return unsubscribe;
+  }
+
+  function unsubscribeAll() {
+    for (const unsubscribe of state.listeners.values()) {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
       }
-
-      case "delete":
-        if (confirm("هل تريد حذف هذه الرسالة؟")) {
-          deleteMessage(id);
-        }
-        break;
     }
+
+    state.listeners.clear();
   }
 
-  function bindEvents() {
-    $("#sendMessageButton")?.addEventListener("click", () => {
-      const input = $("#messageInput");
-      if (!input) return;
+  /* =======================================================
+     RENDER MESSAGE
+  ======================================================= */
 
-      sendMessage(input.value);
-      input.value = "";
-      cancelReply();
-      input.focus();
-    });
+  function renderMessage(message) {
+    const user = getCurrentUser();
 
-    $("#messageInput")?.addEventListener("keydown", event => {
-      if (
-        event.key === "Enter" &&
-        !event.shiftKey
-      ) {
-        event.preventDefault();
-        $("#sendMessageButton")?.click();
-      }
-    });
+    const mine = user?.uid === message.senderId;
 
-    $("#chatSearch")?.addEventListener("input", event => {
-      state.searchQuery = event.target.value.toLowerCase();
-      renderConversationList();
-    });
+    const article = document.createElement("article");
 
-    $("#messageSearch")?.addEventListener("input", event => {
-      searchMessages(event.target.value);
-    });
+    article.className = mine
+      ? "heno-message heno-message-mine"
+      : "heno-message heno-message-other";
 
-    $("#cancelReply")?.addEventListener("click", cancelReply);
+    article.dataset.messageId = message.id;
 
-    $("#chatList")?.addEventListener("click", event => {
-      const button = event.target.closest("[data-chat-open]");
-      if (!button) return;
+    if (message.deleted) {
+      article.innerHTML = `
+        <div class="message-deleted">
+          تم حذف هذه الرسالة
+        </div>
+      `;
 
-      openConversation(button.dataset.chatOpen);
-    });
+      return article;
+    }
 
-    $("#messagesContainer")?.addEventListener("click", event => {
-      const button = event.target.closest("[data-message-action]");
-      if (!button) return;
+    const reply = message.replyTo
+      ? `
+        <div class="message-reply-preview">
+          ${escapeHTML(message.replyTo.text || "رسالة")}
+        </div>
+      `
+      : "";
 
-      handleMessageAction(button);
-    });
+    article.innerHTML = `
+      <div class="message-content">
+        ${reply}
+        <p class="message-text">${escapeHTML(message.text)}</p>
+      </div>
+
+      <footer class="message-meta">
+        <time>${formatTime(message.createdAt)}</time>
+        ${mine ? renderMessageStatus(message.status) : ""}
+      </footer>
+
+      <button
+        type="button"
+        class="message-menu-trigger"
+        data-message-action="menu"
+        aria-label="خيارات الرسالة"
+      >
+        ⋯
+      </button>
+    `;
+
+    return article;
   }
+
+  function formatTime(value) {
+    if (!value) return "";
+
+    let date;
+
+    if (typeof value.toDate === "function") {
+      date = value.toDate();
+    } else {
+      date = new Date(value);
+    }
+
+    if (Number.isNaN(date.getTime())) return "";
+
+    return new Intl.DateTimeFormat("ar-EG", {
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(date);
+  }
+
+  function renderMessageStatus(status) {
+    const labels = {
+      sent: "✓",
+      delivered: "✓✓",
+      read: "✓✓"
+    };
+
+    return `
+      <span class="message-status message-status-${escapeHTML(status)}"
+        aria-label="${escapeHTML(status)}">
+        ${labels[status] || ""}
+      </span>
+    `;
+  }
+
+  /* =======================================================
+     INITIALIZATION
+  ======================================================= */
 
   function init() {
-    load();
-    bindEvents();
-    renderConversationList();
+    if (state.initialized) return;
+
+    state.initialized = true;
 
     document.dispatchEvent(
-      new CustomEvent("heno:chat-ready")
+      new CustomEvent("heno:chat:initialized")
     );
   }
+
+  /* =======================================================
+     PUBLIC API
+  ======================================================= */
 
   return {
     init,
-    createConversation,
-    openConversation,
+
+    getChat,
+    getChats,
+    getMessages,
+    saveChat,
+    saveMessage,
+
+    setActiveChat,
+    closeActiveChat,
+
     sendMessage,
-    receiveMessage,
     editMessage,
     deleteMessage,
-    setReply,
+
+    replyToMessage,
     cancelReply,
-    toggleReaction,
-    togglePin,
-    toggleStar,
+    forwardMessage,
+
+    pinMessage,
+    starMessage,
+    reactToMessage,
+
     searchMessages,
-    renderConversationList,
-    renderMessages,
-    getActiveConversation,
-    getConversation
+    searchAllMessages,
+
+    markAsRead,
+    updateMessageStatus,
+    setTyping,
+
+    createDirectChat,
+    createGroup,
+    addGroupMember,
+    removeGroupMember,
+    updateGroupInfo,
+
+    archiveChat,
+    muteChat,
+    deleteChat,
+
+    subscribeToChats,
+    subscribeToMessages,
+    unsubscribeAll,
+
+    renderMessage,
+    formatTime
   };
+
 })();
 
-window.HENOChat = Chat;
+window.HENOChat = HENOChat;
+HENOChat.init();
