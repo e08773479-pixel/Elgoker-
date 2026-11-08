@@ -1,5 +1,17 @@
 
-const CACHE_NAME = "heno-chat-v3";
+"use strict";
+
+/* =========================================
+   HENO CHAT — SERVICE WORKER
+   Version: 1.0.2
+   Cache: heno-chat-v4
+========================================= */
+
+const APP_VERSION = "1.0.2";
+const CACHE_PREFIX = "heno-chat-";
+const CACHE_NAME = `${CACHE_PREFIX}v4`;
+
+const APP_ROOT = new URL("./", self.registration.scope);
 
 const CORE_FILES = [
   "./",
@@ -7,37 +19,56 @@ const CORE_FILES = [
   "./install.html",
   "./styles.css",
   "./manifest.json",
-  "./assets/icon.svg",
-  "./assets/icon-192.png",
-  "./assets/icon-512.png",
-  "./assets/icon-maskable-512.png",
   "./js/app.js",
   "./js/auth.js",
   "./js/chat.js",
   "./js/social.js",
   "./js/media.js",
   "./js/calls.js",
-  "./js/settings.js"
+  "./js/settings.js",
+  "./pages/settings.html",
+  "./pages/profile.html"
 ];
 
-// تثبيت الإصدار الجديد
+/* تحويل المسارات إلى روابط داخل نطاق التطبيق */
+function appURL(path) {
+  return new URL(path, APP_ROOT).href;
+}
+
+/* التأكد أن الطلب تابع للتطبيق */
+function isAppRequest(request) {
+  const url = new URL(request.url);
+
+  return (
+    url.origin === self.location.origin &&
+    url.href.startsWith(APP_ROOT.href)
+  );
+}
+
+/* =========================================
+   INSTALL
+========================================= */
+
 self.addEventListener("install", event => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
 
+      /* تخزين الملفات المتاحة فقط */
       await Promise.allSettled(
-        CORE_FILES.map(async file => {
+        CORE_FILES.map(async path => {
+          const url = appURL(path);
+
           try {
-            const response = await fetch(file, {
+            const response = await fetch(url, {
               cache: "reload"
             });
 
             if (response.ok) {
-              await cache.put(file, response);
+              await cache.put(url, response);
             }
           } catch (error) {
-            console.warn("[HENO] Cache skipped:", file);
+            /* الملف سيُحمّل عند توفر الاتصال */
           }
         })
       );
@@ -47,76 +78,161 @@ self.addEventListener("install", event => {
   );
 });
 
-// تفعيل الإصدار الجديد وحذف الإصدارات القديمة
+/* =========================================
+   ACTIVATE
+========================================= */
+
 self.addEventListener("activate", event => {
   event.waitUntil(
     (async () => {
-      const keys = await caches.keys();
+      const cacheNames = await caches.keys();
 
       await Promise.all(
-        keys
-          .filter(key =>
-            key.startsWith("heno-chat-") &&
-            key !== CACHE_NAME
-          )
-          .map(key => caches.delete(key))
+        cacheNames.map(async name => {
+          if (
+            name.startsWith(CACHE_PREFIX) &&
+            name !== CACHE_NAME
+          ) {
+            await caches.delete(name);
+          }
+        })
       );
 
       await self.clients.claim();
+
+      const clients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true
+      });
+
+      clients.forEach(client => {
+        client.postMessage({
+          type: "HENO_UPDATE_ACTIVATED",
+          version: APP_VERSION
+        });
+      });
     })()
   );
 });
 
-// الصفحات: الشبكة أولًا
-// الملفات: الكاش أولًا بعد تحميل الإصدار الجديد
+/* =========================================
+   NETWORK FIRST
+   للصفحات وملفات HTML
+========================================= */
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+
+  try {
+    const response = await fetch(request);
+
+    if (response && response.ok) {
+      await cache.put(request, response.clone());
+    }
+
+    return response;
+  } catch (error) {
+    const cached = await cache.match(request);
+
+    if (cached) return cached;
+
+    const fallback = await cache.match(appURL("./index.html"));
+
+    if (fallback) return fallback;
+
+    return new Response(
+      "لا يوجد اتصال بالإنترنت. حاول مرة أخرى.",
+      {
+        status: 503,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8"
+        }
+      }
+    );
+  }
+}
+
+/* =========================================
+   STALE WHILE REVALIDATE
+   للصور وCSS وJavaScript والخطوط
+========================================= */
+
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+
+  const update = fetch(request)
+    .then(async response => {
+      if (response && response.ok) {
+        await cache.put(request, response.clone());
+      }
+
+      return response;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    update.catch(() => {});
+    return cached;
+  }
+
+  const fresh = await update;
+
+  if (fresh) return fresh;
+
+  return new Response(
+    "تعذر تحميل الملف. تحقق من اتصال الإنترنت.",
+    {
+      status: 503,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8"
+      }
+    }
+  );
+}
+
+/* =========================================
+   FETCH
+========================================= */
+
 self.addEventListener("fetch", event => {
   const request = event.request;
 
   if (request.method !== "GET") return;
+  if (!isAppRequest(request)) return;
 
   const url = new URL(request.url);
 
-  if (url.origin !== self.location.origin) return;
+  /* الصفحات */
+  if (
+    request.mode === "navigate" ||
+    url.pathname.endsWith(".html") ||
+    url.pathname.endsWith("/")
+  ) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
 
-  event.respondWith(
-    (async () => {
-      if (request.mode === "navigate") {
-        try {
-          const response = await fetch(request);
-          const cache = await caches.open(CACHE_NAME);
+  /* الملفات الثابتة */
+  event.respondWith(staleWhileRevalidate(request));
+});
 
-          if (response.ok) {
-            await cache.put(request, response.clone());
-          }
+/* =========================================
+   MESSAGES
+========================================= */
 
-          return response;
-        } catch (error) {
-          return (
-            await caches.match(request)
-          ) || (
-            await caches.match("./index.html")
-          ) || new Response("أنت غير متصل بالإنترنت", {
-            status: 503
-          });
-        }
-      }
+self.addEventListener("message", event => {
+  const data = event.data || {};
 
-      const cached = await caches.match(request);
+  if (data.type === "HENO_SKIP_WAITING") {
+    self.skipWaiting();
+  }
 
-      if (cached) return cached;
-
-      try {
-        const response = await fetch(request);
-
-        if (response.ok && response.type === "basic") {
-          const cache = await caches.open(CACHE_NAME);
-          await cache.put(request, response.clone());
-        }
-
-        return response;
-      } catch (error) {
-        return new Response("", { status: 503 });
-      }
-    })()
-  );
+  if (data.type === "HENO_GET_VERSION") {
+    event.source?.postMessage({
+      type: "HENO_VERSION",
+      version: APP_VERSION,
+      cache: CACHE_NAME
+    });
+  }
 });
