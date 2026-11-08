@@ -1,0 +1,951 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0b18">
+  <meta name="description" content="إعدادات HENO CHAT">
+  <title>الإعدادات | HENO CHAT</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #0b0b18;
+      --surface: #151526;
+      --surface-2: #1d1d32;
+      --surface-3: #262640;
+      --primary: #9278ff;
+      --primary-light: #b2a2ff;
+      --text: #f7f5ff;
+      --muted: #9694ad;
+      --border: rgba(255,255,255,.075);
+      --danger: #ff647d;
+      --success: #43d6b0;
+      --radius: 19px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 90% 0%, rgba(111,83,230,.16), transparent 32%),
+        radial-gradient(circle at 0% 60%, rgba(45,169,190,.07), transparent 30%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Cairo", sans-serif;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .settings-shell {
+      width: min(100%, 1050px);
+      margin: auto;
+      padding: 25px 20px 70px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      margin-bottom: 27px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg,#b09aff,#6550d8);
+      box-shadow: 0 8px 28px rgba(126,96,255,.3);
+      font-size: 27px;
+      font-weight: 900;
+    }
+
+    .brand-name {
+      font-size: 19px;
+      font-weight: 900;
+      letter-spacing: .5px;
+    }
+
+    .brand-name span {
+      color: var(--primary-light);
+    }
+
+    .brand-caption {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .back-button {
+      width: 43px;
+      height: 43px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 14px;
+      font-size: 22px;
+    }
+
+    .page-heading {
+      margin-bottom: 23px;
+    }
+
+    .eyebrow {
+      color: var(--primary-light);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .page-heading h1 {
+      font-size: clamp(27px,5vw,37px);
+      font-weight: 900;
+      margin: 4px 0;
+    }
+
+    .page-heading p {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .settings-search {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 0 16px;
+      height: 53px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      margin-bottom: 23px;
+    }
+
+    .settings-search span {
+      color: var(--primary-light);
+      font-size: 21px;
+    }
+
+    .settings-search input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: 0;
+      outline: 0;
+      color: white;
+      font-size: 13px;
+    }
+
+    .settings-search input::placeholder {
+      color: var(--muted);
+    }
+
+    .account-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 19px;
+      border: 1px solid rgba(161,137,255,.19);
+      border-radius: 23px;
+      background:
+        linear-gradient(115deg,rgba(135,105,255,.15),rgba(37,37,65,.65)),
+        var(--surface);
+      margin-bottom: 27px;
+    }
+
+    .account-avatar {
+      width: 65px;
+      height: 65px;
+      border-radius: 22px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      background: linear-gradient(145deg,#b6a4ff,#5944c6);
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .account-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .account-info strong {
+      display: block;
+      font-size: 16px;
+    }
+
+    .account-info span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .account-info .user-code {
+      display: block;
+      color: var(--primary-light);
+      margin-top: 4px;
+      font-size: 11px;
+    }
+
+    .edit-profile {
+      border: 1px solid rgba(169,148,255,.3);
+      background: rgba(143,117,255,.12);
+      color: var(--primary-light);
+      padding: 9px 13px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .settings-section {
+      margin-bottom: 26px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+      font-weight: 800;
+      margin: 0 4px 12px;
+    }
+
+    .section-title::before {
+      content: "";
+      width: 4px;
+      height: 19px;
+      border-radius: 8px;
+      background: var(--primary);
+    }
+
+    .settings-card {
+      background: rgba(21,21,38,.91);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .setting-row {
+      width: 100%;
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 12px 15px;
+      text-align: right;
+      border: 0;
+      border-bottom: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      transition: background .2s;
+    }
+
+    .setting-row:last-child {
+      border-bottom: 0;
+    }
+
+    .setting-row:hover {
+      background: rgba(145,119,255,.075);
+    }
+
+    .setting-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      color: var(--primary-light);
+      background: rgba(143,117,255,.12);
+    }
+
+    .setting-icon svg {
+      width: 21px;
+      height: 21px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .setting-copy {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .setting-copy strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .setting-copy small {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 2px;
+    }
+
+    .setting-arrow {
+      color: #77748f;
+      font-size: 21px;
+    }
+
+    .setting-value {
+      color: var(--primary-light);
+      font-size: 11px;
+    }
+
+    .toggle {
+      width: 43px;
+      height: 24px;
+      border-radius: 30px;
+      border: 0;
+      background: #45445c;
+      position: relative;
+      flex-shrink: 0;
+      transition: background .2s;
+    }
+
+    .toggle::after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: white;
+      top: 3px;
+      right: 3px;
+      transition: transform .2s;
+    }
+
+    .toggle[aria-checked="true"] {
+      background: var(--primary);
+    }
+
+    .toggle[aria-checked="true"]::after {
+      transform: translateX(-19px);
+    }
+
+    .danger-row .setting-icon {
+      color: var(--danger);
+      background: rgba(255,100,125,.1);
+    }
+
+    .danger-row .setting-copy strong {
+      color: var(--danger);
+    }
+
+    .settings-footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      padding-top: 15px;
+    }
+
+    .settings-footer strong {
+      color: var(--primary-light);
+    }
+
+    .detail-panel {
+      display: none;
+      margin-top: 20px;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+    }
+
+    .detail-panel.open {
+      display: block;
+    }
+
+    .detail-panel h2 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .detail-panel p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.9;
+    }
+
+    .detail-close {
+      margin-top: 15px;
+      padding: 9px 18px;
+      background: var(--surface-3);
+      border: 0;
+      color: white;
+      border-radius: 10px;
+    }
+
+    .setting-row.filtered-out {
+      display: none;
+    }
+
+    .settings-section.filtered-out {
+      display: none;
+    }
+
+    @media(max-width:600px) {
+      .settings-shell {
+        padding: 18px 13px 45px;
+      }
+
+      .account-card {
+        padding: 14px;
+        gap: 11px;
+      }
+
+      .account-avatar {
+        width: 55px;
+        height: 55px;
+      }
+
+      .edit-profile {
+        padding: 8px;
+      }
+
+      .setting-row {
+        min-height: 68px;
+        padding: 10px 11px;
+        gap: 10px;
+      }
+
+      .setting-icon {
+        width: 39px;
+        height: 39px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<main class="settings-shell">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">H</div>
+      <div>
+        <div class="brand-name">HENO <span>CHAT</span></div>
+        <div class="brand-caption">تواصل بلا حدود</div>
+      </div>
+    </div>
+
+    <button class="back-button" id="backButton" aria-label="رجوع">→</button>
+  </header>
+
+  <section class="page-heading">
+    <span class="eyebrow">تحكم في تجربتك</span>
+    <h1>الإعدادات</h1>
+    <p>خصص حسابك وخصوصيتك وتجربة استخدام HENO CHAT.</p>
+  </section>
+
+  <label class="settings-search">
+    <span>⌕</span>
+    <input id="settingsSearch" type="search" placeholder="ابحث عن إعداد...">
+  </label>
+
+  <section class="account-card">
+    <div class="account-avatar" id="settingsAvatar">H</div>
+
+    <div class="account-info">
+      <strong id="settingsName">حساب HENO</strong>
+      <span id="settingsUsername">@username</span>
+      <small class="user-code" id="settingsUserCode">كود HENO: —</small>
+    </div>
+
+    <button class="edit-profile" id="editProfileButton">
+      تعديل الملف
+    </button>
+  </section>
+
+  <section class="settings-section">
+    <h2 class="section-title">الحساب والهوية</h2>
+
+    <div class="settings-card">
+
+      <button class="setting-row" data-setting="account">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>الحساب</strong>
+          <small>معلومات الحساب ورقم الهاتف والبريد</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="profile">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>الملف الشخصي</strong>
+          <small>الاسم والصورة واسم المستخدم والنبذة</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="username">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><path d="M8 12h8"/><path d="M12 8v8"/><circle cx="12" cy="12" r="9"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>اسم المستخدم وكود HENO</strong>
+          <small>إدارة وسيلة العثور عليك</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2 class="section-title">الخصوصية والأمان</h2>
+
+    <div class="settings-card">
+
+      <button class="setting-row" data-setting="privacy">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>الخصوصية</strong>
+          <small>آخر ظهور والصورة والحالة ومن يمكنه التواصل معك</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="last-seen">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>آخر ظهور وحالة الاتصال</strong>
+          <small>حدد من يستطيع رؤية نشاطك</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="security">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/><path d="m9 12 2 2 4-4"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>الأمان والتحقق</strong>
+          <small>حماية الحساب والتحقق بخطوتين</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="blocked">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>المحظورون</strong>
+          <small>إدارة الأشخاص المحظورين</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="devices">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>الأجهزة المرتبطة</strong>
+          <small>إدارة جلسات وأجهزة حسابك</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2 class="section-title">المظهر والتخصيص</h2>
+
+    <div class="settings-card">
+
+      <button class="setting-row" data-setting="appearance">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18Z"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>المظهر والألوان</strong>
+          <small>الوضع الداكن والفاتح والألوان</small>
+        </span>
+        <span class="setting-value">داكن</span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="language">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2v3"/><path d="m14 21 5-12 5 12"/><path d="M16 17h6"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>اللغة</strong>
+          <small>لغة واجهة التطبيق</small>
+        </span>
+        <span class="setting-value">العربية</span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="wallpaper">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>خلفية المحادثات</strong>
+          <small>خصص خلفية رسائلك</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="accessibility">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="4" r="2"/><path d="M4 8h16M12 8v13m-5-8 5-5 5 5"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>إمكانية الوصول</strong>
+          <small>حجم النص والحركة ووضوح الواجهة</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2 class="section-title">الإشعارات والمحادثات</h2>
+
+    <div class="settings-card">
+
+      <div class="setting-row">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>الإشعارات</strong>
+          <small>إشعارات الرسائل والمجموعات والمكالمات</small>
+        </span>
+        <button class="toggle" role="switch" aria-checked="true" data-toggle="notifications" aria-label="تفعيل الإشعارات"></button>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>معاينة الرسائل</strong>
+          <small>إظهار محتوى الرسائل في الإشعار</small>
+        </span>
+        <button class="toggle" role="switch" aria-checked="true" data-toggle="message-preview" aria-label="معاينة الرسائل"></button>
+      </div>
+
+      <button class="setting-row" data-setting="chat-settings">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><path d="M4 4h16v13H7l-3 3Z"/><path d="M8 9h8m-8 4h5"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>إعدادات المحادثات</strong>
+          <small>النسخ الاحتياطي وإدارة الرسائل</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="storage">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v7c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12v7c0 1.7 4 3 9 3s9-1.3 9-3v-7"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>التخزين والبيانات</strong>
+          <small>استهلاك البيانات والملفات والمساحة</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <h2 class="section-title">المساعدة والدعم</h2>
+
+    <div class="settings-card">
+
+      <button class="setting-row" data-setting="help">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.2 1.8c-1.2 1-1.7 1.3-1.7 3.2"/><path d="M12 17h.01"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>مركز المساعدة</strong>
+          <small>الأسئلة الشائعة والدعم الفني</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="feedback">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 4a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8Z"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>إرسال ملاحظات</strong>
+          <small>ساعدنا في تطوير HENO CHAT</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+      <button class="setting-row" data-setting="about">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>حول HENO CHAT</strong>
+          <small>معلومات التطبيق والإصدار</small>
+        </span>
+        <span class="setting-value">1.0.0</span>
+        <span class="setting-arrow">‹</span>
+      </button>
+
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <div class="settings-card">
+      <button class="setting-row danger-row" id="logoutButton">
+        <span class="setting-icon">
+          <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7"/></svg>
+        </span>
+        <span class="setting-copy">
+          <strong>تسجيل الخروج</strong>
+          <small>الخروج من حساب HENO CHAT</small>
+        </span>
+        <span class="setting-arrow">‹</span>
+      </button>
+    </div>
+  </section>
+
+  <div class="detail-panel" id="detailPanel">
+    <h2 id="detailTitle"></h2>
+    <p id="detailDescription"></p>
+    <button class="detail-close" id="detailClose">إغلاق</button>
+  </div>
+
+  <footer class="settings-footer">
+    <strong>HENO CHAT</strong>
+    <p>صُمم ليجمع عالمك في مكان واحد.</p>
+    <p>الإصدار 1.0.0</p>
+  </footer>
+
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (selector, root = document) =>
+    root.querySelector(selector);
+
+  const detailPanel = $("#detailPanel");
+  const detailTitle = $("#detailTitle");
+  const detailDescription = $("#detailDescription");
+
+  const settingDescriptions = {
+    account: ["الحساب", "إدارة معلومات الحساب والبريد الإلكتروني ورقم الهاتف وتغيير كلمة المرور وحماية بيانات الدخول."],
+    profile: ["الملف الشخصي", "إدارة صورتك واسمك واسم المستخدم والنبذة التعريفية وكود HENO."],
+    username: ["اسم المستخدم وكود HENO", "تخصيص اسم المستخدم ومراجعة كود HENO الفريد الذي يمكن للآخرين البحث عنك به."],
+    privacy: ["الخصوصية", "إدارة من يستطيع رؤية صورتك الشخصية وحالتك ومعلوماتك والتواصل معك."],
+    "last-seen": ["آخر ظهور وحالة الاتصال", "تحديد من يستطيع رؤية آخر ظهورك وحالة اتصالك."],
+    security: ["الأمان والتحقق", "إعدادات حماية الحساب والتحقق بخطوتين والجلسات الأمنية."],
+    blocked: ["المحظورون", "عرض وإدارة الحسابات التي حظرتها."],
+    devices: ["الأجهزة المرتبطة", "مراجعة الأجهزة المرتبطة بحسابك وإدارة الجلسات."],
+    appearance: ["المظهر والألوان", "تخصيص الوضع الداكن والفاتح وألوان HENO CHAT وخيارات العرض."],
+    language: ["اللغة", "اختيار لغة التطبيق واتجاه الواجهة."],
+    wallpaper: ["خلفية المحادثات", "تخصيص خلفية المحادثات لتناسب ذوقك."],
+    accessibility: ["إمكانية الوصول", "خيارات حجم النص ووضوح العناصر وتقليل الحركة."],
+    notifications: ["الإشعارات", "التحكم في إشعارات الرسائل والمجموعات والمكالمات."],
+    "chat-settings": ["إعدادات المحادثات", "خيارات المحادثات والنسخ الاحتياطي وإدارة الرسائل."],
+    storage: ["التخزين والبيانات", "إدارة ملفات الوسائط واستهلاك البيانات ومساحة التخزين."],
+    help: ["مركز المساعدة", "الأسئلة الشائعة وطرق التواصل مع الدعم الفني."],
+    feedback: ["إرسال ملاحظات", "شاركنا اقتراحاتك أو أبلغنا عن مشكلة لتحسين التطبيق."],
+    about: ["حول HENO CHAT", "تطبيق HENO CHAT — تواصل بلا حدود. الإصدار 1.0.0."]
+  };
+
+  function openDetail(key) {
+    const data = settingDescriptions[key];
+
+    if (!data) return;
+
+    detailTitle.textContent = data[0];
+    detailDescription.textContent = data[1];
+    detailPanel.classList.add("open");
+
+    detailPanel.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest"
+    });
+
+    document.dispatchEvent(
+      new CustomEvent("heno:settings:open", {
+        detail: { key }
+      })
+    );
+  }
+
+  document.querySelectorAll("[data-setting]").forEach(button => {
+    button.addEventListener("click", () => {
+      openDetail(button.dataset.setting);
+    });
+  });
+
+  $("#detailClose").addEventListener("click", () => {
+    detailPanel.classList.remove("open");
+  });
+
+  $("#settingsSearch").addEventListener("input", event => {
+    const query = event.target.value.trim().toLowerCase();
+
+    document.querySelectorAll(".settings-section").forEach(section => {
+      const rows = [...section.querySelectorAll(".setting-row")];
+
+      let visible = false;
+
+      rows.forEach(row => {
+        const match = row.textContent.toLowerCase().includes(query);
+
+        row.classList.toggle("filtered-out", !!query && !match);
+
+        if (match || !query) visible = true;
+      });
+
+      section.classList.toggle(
+        "filtered-out",
+        !!query && !visible
+      );
+    });
+  });
+
+  document.querySelectorAll("[data-toggle]").forEach(button => {
+    button.addEventListener("click", () => {
+      const current = button.getAttribute("aria-checked") === "true";
+      const next = !current;
+
+      button.setAttribute("aria-checked", String(next));
+
+      document.dispatchEvent(
+        new CustomEvent("heno:settings:toggle", {
+          detail: {
+            setting: button.dataset.toggle,
+            enabled: next
+          }
+        })
+      );
+    });
+  });
+
+  $("#editProfileButton").addEventListener("click", () => {
+    document.dispatchEvent(
+      new CustomEvent("heno:navigate", {
+        detail: { page: "profile" }
+      })
+    );
+
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: "HENO_NAVIGATE",
+        page: "profile"
+      }, "*");
+    } else {
+      window.location.href = "./profile.html";
+    }
+  });
+
+  $("#backButton").addEventListener("click", () => {
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: "HENO_NAVIGATE",
+        page: "back"
+      }, "*");
+    } else if (history.length > 1) {
+      history.back();
+    } else {
+      window.location.href = "../index.html";
+    }
+  });
+
+  $("#logoutButton").addEventListener("click", () => {
+    const confirmed = window.confirm(
+      "هل تريد تسجيل الخروج من HENO CHAT؟"
+    );
+
+    if (!confirmed) return;
+
+    document.dispatchEvent(
+      new CustomEvent("heno:auth:logout-request")
+    );
+  });
+
+  window.HENOSettingsPage = {
+    openDetail,
+
+    updateProfile(profile = {}) {
+      if (profile.name) {
+        $("#settingsName").textContent = profile.name;
+      }
+
+      if (profile.username) {
+        $("#settingsUsername").textContent =
+          "@" + profile.username.replace(/^@/, "");
+      }
+
+      if (profile.userCode) {
+        $("#settingsUserCode").textContent =
+          "كود HENO: " + profile.userCode;
+      }
+
+      if (profile.photoURL) {
+        const avatar = $("#settingsAvatar");
+
+        avatar.style.backgroundImage =
+          `url("${profile.photoURL}")`;
+
+        avatar.style.backgroundSize = "cover";
+        avatar.textContent = "";
+      }
+    }
+  };
+
+  document.dispatchEvent(
+    new CustomEvent("heno:settings:ready")
+  );
+})();
+</script>
+
+</body>
+</html>
