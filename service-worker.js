@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "heno-chat-v2";
+const CACHE_NAME = "heno-chat-v3";
 
 const CORE_FILES = [
   "./",
@@ -20,20 +20,24 @@ const CORE_FILES = [
   "./js/settings.js"
 ];
 
-// تثبيت وتخزين الملفات الأساسية
-self.addEventListener("install", (event) => {
+// تثبيت الإصدار الجديد
+self.addEventListener("install", event => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
 
       await Promise.allSettled(
-        CORE_FILES.map(async (file) => {
-          const response = await fetch(file, {
-            cache: "reload"
-          });
+        CORE_FILES.map(async file => {
+          try {
+            const response = await fetch(file, {
+              cache: "reload"
+            });
 
-          if (response.ok) {
-            await cache.put(file, response);
+            if (response.ok) {
+              await cache.put(file, response);
+            }
+          } catch (error) {
+            console.warn("[HENO] Cache skipped:", file);
           }
         })
       );
@@ -43,18 +47,17 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// تفعيل النسخة الجديدة
-self.addEventListener("activate", (event) => {
+// تفعيل الإصدار الجديد وحذف الإصدارات القديمة
+self.addEventListener("activate", event => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
 
       await Promise.all(
         keys
-          .filter(
-            key =>
-              key.startsWith("heno-chat-") &&
-              key !== CACHE_NAME
+          .filter(key =>
+            key.startsWith("heno-chat-") &&
+            key !== CACHE_NAME
           )
           .map(key => caches.delete(key))
       );
@@ -64,8 +67,9 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// تحميل الصفحات من الشبكة أولًا لمنع عرض نسخة قديمة
-self.addEventListener("fetch", (event) => {
+// الصفحات: الشبكة أولًا
+// الملفات: الكاش أولًا بعد تحميل الإصدار الجديد
+self.addEventListener("fetch", event => {
   const request = event.request;
 
   if (request.method !== "GET") return;
